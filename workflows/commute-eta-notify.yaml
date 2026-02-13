@@ -1,27 +1,48 @@
 name: Commute ETA Notification
-app: "${NAV_APP:-Waze}"
+app: Waze, Messages
 description: >
-  Get ETA from a navigation app, then send it to a contact via messaging.
+  Get commute ETA from Waze, then send it via iMessage.
   Demonstrates cross-app data extraction — the AI reads dynamic content
   from one app and composes it into a message in another.
 
+  Tested flow: Waze home → tap destination shortcut → tap "Y aller" to
+  start navigation → read ETA → switch to Messages → compose new message
+  to contact → type and send.
+
+  Known issues:
+  - iOS autocorrect may mangle words (e.g. "says" → "days"). Avoid
+    uncommon words in MESSAGE_PREFIX.
+  - The em dash (—) gets converted to a period by HID input. Use a
+    hyphen (-) instead.
+  - The compose and send buttons in Messages are icon-only (no OCR text).
+    Use "New Message" for compose and press_key return to send.
+
 steps:
-  - launch: "${NAV_APP:-Waze}"
-  - wait_for: "${DESTINATION:-Office}"
-  - tap: "${DESTINATION:-Office}"
+  # --- Waze: get the ETA ---
+  - launch: "Waze"
+  - wait_for: "Où va-t-on ?"
+  - tap: "Où va-t-on ?"
+  - wait_for: "${DESTINATION:-Travail}"
+  - tap: "${DESTINATION:-Travail}"
+  - wait_for: "Y aller"
+  - tap: "Y aller"
   - wait_for: "min"
-  - remember: "Read the ETA displayed on screen (e.g. '23 min'). You will insert it into a message in the next app."
+  - remember: "Read the commute time (e.g. '57 min') and ETA (e.g. '17:08') from the navigation screen. You will insert both into a message."
   - screenshot: "eta_screen"
+
+  # --- Messages: compose and send ---
   - press_home: true
-  - launch: "${MESSAGING_APP:-Messages}"
-  - wait_for: "Search"
-  - tap: "Search"
-  - type: "${BOSS_CONTACT}"
-  - wait_for: "${BOSS_CONTACT}"
-  - tap: "${BOSS_CONTACT}"
-  - wait_for: "Message"
-  - tap: "Message"
-  - type: "${MESSAGE_PREFIX:-Leaving now, should be there in} {ETA}"
+  - launch: "Messages"
+  - wait_for: "Messages"
+  - tap: "New Message"
+  - wait_for: "À :"
+  - tap: "À :"
+  - type: "${RECIPIENT}"
+  - wait_for: "${RECIPIENT}"
+  - tap: "${RECIPIENT}"
+  - wait_for: "iMessage"
+  - tap: "iMessage"
+  - type: "${MESSAGE_PREFIX:-On my way!} {commute_time} to the office (ETA {eta})"
   - press_key: "return"
-  - assert_visible: "{ETA}"
+  - wait_for: "Distribué"
   - screenshot: "message_sent"
