@@ -30,8 +30,10 @@ Scenarios are YAML files that describe multi-step iOS automation flows as **inte
 | `assert_not_visible: "Label"` | Call `describe_screen` and verify the label is absent. Report failure if found. |
 | `screenshot: "label"` | Call `screenshot` and label it in your response |
 | `press_key: "return"` | Call `press_key` |
+| `press_home: true` | Call `press_home` to return to the home screen |
 | `open_url: "https://..."` | Call `open_url` |
 | `shake: true` | Call `shake` |
+| `remember: "instruction"` | Read dynamic data from the screen and hold it in memory. Use `{NAME}` (single braces) in later steps to insert the remembered value. |
 
 ## Variable Substitution
 

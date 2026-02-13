@@ -1,0 +1,27 @@
+name: Commute ETA Notification
+app: "${NAV_APP:-Waze}"
+description: >
+  Get ETA from a navigation app, then send it to a contact via messaging.
+  Demonstrates cross-app data extraction — the AI reads dynamic content
+  from one app and composes it into a message in another.
+
+steps:
+  - launch: "${NAV_APP:-Waze}"
+  - wait_for: "${DESTINATION:-Office}"
+  - tap: "${DESTINATION:-Office}"
+  - wait_for: "min"
+  - remember: "Read the ETA displayed on screen (e.g. '23 min'). You will insert it into a message in the next app."
+  - screenshot: "eta_screen"
+  - press_home: true
+  - launch: "${MESSAGING_APP:-Messages}"
+  - wait_for: "Search"
+  - tap: "Search"
+  - type: "${BOSS_CONTACT}"
+  - wait_for: "${BOSS_CONTACT}"
+  - tap: "${BOSS_CONTACT}"
+  - wait_for: "Message"
+  - tap: "Message"
+  - type: "${MESSAGE_PREFIX:-Leaving now, should be there in} {ETA}"
+  - press_key: "return"
+  - assert_visible: "{ETA}"
+  - screenshot: "message_sent"

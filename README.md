@@ -15,7 +15,7 @@ steps:
   - launch: "Slack"
   - wait_for: "Home"
   - tap: "Direct Messages"
-  - tap: "${RECIPIENT:-Phil Tremblay}"
+  - tap: "${RECIPIENT}"
   - tap: "Message"
   - type: "${MESSAGE:-Hey, just checking in!}"
   - press_key: "return"
@@ -68,6 +68,14 @@ Both paths are scanned recursively by `list_scenarios`.
 |----------|-------------|
 | `testing/expo-go/login-flow` | Test login screen with credentials |
 | `testing/expo-go/shake-debug-menu` | Open React Native debug menu via shake |
+
+### Workflows
+
+| Scenario | Description |
+|----------|-------------|
+| `workflows/commute-eta-notify` | Get ETA from Waze, send it to your boss via Messages |
+
+Workflows demonstrate **cross-app data extraction** — the AI reads dynamic content from one app and composes it into actions in another. This is something only an AI executor can do.
 
 ## Variable Substitution
 
