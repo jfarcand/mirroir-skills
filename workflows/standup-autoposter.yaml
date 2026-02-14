@@ -1,0 +1,32 @@
+name: Standup Autoposter
+app: Calendar, Slack
+description: >
+  Read today's meetings from Calendar, compose a standup update,
+  and post it to a Slack channel. Demonstrates cross-app data
+  extraction where the AI reads dynamic calendar content and
+  formats it into a Slack message.
+ios_min: "17.0"
+locale: "en_US"
+tags: ["workflow", "cross-app", "calendar", "slack", "standup", "productivity"]
+
+steps:
+  - launch: "Calendar"
+  - wait_for: "Calendar"
+  - tap: "Today"
+  - wait_for: "Today"
+  - remember: "Read all event titles and times from today's calendar view. Format as bullet list."
+  - screenshot: "todays_meetings"
+  - press_home: true
+  - launch: "Slack"
+  - wait_for: "Home"
+  - tap: "Search"
+  - wait_for: "Search"
+  - type: "${STANDUP_CHANNEL:-#standup}"
+  - wait_for: "${STANDUP_CHANNEL:-#standup}"
+  - tap: "${STANDUP_CHANNEL:-#standup}"
+  - wait_for: "Message"
+  - tap: "Message"
+  - type: "${MESSAGE_PREFIX:-Standup update:} {meetings}"
+  - press_key: "return"
+  - assert_visible: "${MESSAGE_PREFIX:-Standup update:}"
+  - screenshot: "standup_posted"

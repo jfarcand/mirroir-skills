@@ -1,0 +1,29 @@
+name: Mobile QA Smoke Pack
+app: Expo Go
+description: >
+  Quick smoke test for a mobile app via Expo Go. Launches the app,
+  verifies the home screen loads, navigates key screens, and captures
+  screenshots at each checkpoint. Template for CI screenshot capture.
+ios_min: "17.0"
+locale: "en_US"
+tags: ["workflow", "testing", "expo", "qa", "smoke-test", "screenshots"]
+
+steps:
+  - launch: "Expo Go"
+  - wait_for: "${APP_SCREEN:-Home}"
+  - tap: "${APP_SCREEN:-Home}"
+  - wait_for: "${LANDING_LABEL:-Welcome}"
+  - assert_visible: "${LANDING_LABEL:-Welcome}"
+  - screenshot: "smoke_01_landing"
+  - tap: "${SCREEN_1_TAP:-Profile}"
+  - wait_for: "${SCREEN_1_LABEL:-Profile}"
+  - assert_visible: "${SCREEN_1_LABEL:-Profile}"
+  - screenshot: "smoke_02_screen1"
+  - tap: "${SCREEN_2_TAP:-Settings}"
+  - wait_for: "${SCREEN_2_LABEL:-Settings}"
+  - assert_visible: "${SCREEN_2_LABEL:-Settings}"
+  - screenshot: "smoke_03_screen2"
+  - tap: "${LANDING_TAP:-Home}"
+  - wait_for: "${LANDING_LABEL:-Welcome}"
+  - assert_visible: "${LANDING_LABEL:-Welcome}"
+  - screenshot: "smoke_04_return"

@@ -77,6 +77,8 @@ Both paths are scanned recursively by `list_scenarios`.
 | Scenario | Description |
 |----------|-------------|
 | `workflows/commute-eta-notify` | Get ETA from Waze, send it to your boss via Messages |
+| `workflows/standup-autoposter` | Read today's meetings from Calendar, post standup to Slack |
+| `workflows/qa-smoke-pack` | Smoke test a mobile app via Expo Go with screenshots at each checkpoint |
 
 Workflows demonstrate **cross-app data extraction** — the AI reads dynamic content from one app and composes it into actions in another. This is something only an AI executor can do.
 
