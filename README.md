@@ -31,9 +31,16 @@ claude plugin marketplace add jfarcand/iphone-mirroir-scenarios
 claude plugin install scenarios@iphone-mirroir-scenarios
 ```
 
-This installs the [SKILL.md](plugins/scenarios/skills/scenarios/SKILL.md) which teaches your AI how to interpret and execute scenario steps.
+### GitHub Copilot CLI
 
-### Manual
+```bash
+copilot plugin marketplace add jfarcand/iphone-mirroir-scenarios
+copilot plugin install scenarios@iphone-mirroir-scenarios
+```
+
+Both install the [SKILL.md](plugins/scenarios/skills/scenarios/SKILL.md) which teaches the AI how to interpret and execute scenario steps.
+
+### Manual (all other clients)
 
 Clone into your global scenarios directory:
 

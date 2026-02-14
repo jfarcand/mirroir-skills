@@ -1,0 +1,20 @@
+{
+  "name": "iphone-mirroir-scenarios",
+  "metadata": {
+    "description": "Community scenarios for iPhone Mirroring MCP — ready-made YAML workflows for automating iOS apps via AI-driven screen interaction.",
+    "version": "1.0.0"
+  },
+  "owner": {
+    "name": "Jean-Francois Arcand",
+    "email": "jfarcand@apache.org"
+  },
+  "plugins": [
+    {
+      "name": "scenarios",
+      "description": "YAML scenario execution skill — teaches the AI how to interpret and run iphone-mirroir-mcp scenarios",
+      "version": "1.0.0",
+      "source": "plugins/scenarios",
+      "skills": ["./plugins/scenarios/skills/scenarios"]
+    }
+  ]
+}
