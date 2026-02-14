@@ -24,14 +24,14 @@ steps:
 
 ## Installation
 
-### Claude Code / GitHub Copilot
+### Claude Code
 
 ```bash
-/plugin marketplace add jfarcand/iphone-mirroir-scenarios
-/plugin install iphone-mirroir-scenarios:scenarios
+claude plugin marketplace add jfarcand/iphone-mirroir-scenarios
+claude plugin install scenarios@iphone-mirroir-scenarios
 ```
 
-This installs the [SKILL.md](skills/scenarios/SKILL.md) which teaches your AI how to interpret and execute scenario steps.
+This installs the [SKILL.md](plugins/scenarios/skills/scenarios/SKILL.md) which teaches your AI how to interpret and execute scenario steps.
 
 ### Manual
 
