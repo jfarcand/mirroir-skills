@@ -1,6 +1,10 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jfarcand/iphone-mirroir-mcp/main/website/public/mirroir-wordmark.svg" alt="iphone-mirroir-mcp" width="128" />
+</p>
+
 # iphone-mirroir-scenarios
 
-Community-contributed YAML scenarios for [iphone-mirroir-mcp](https://github.com/jfarcand/iphone-mirroir-mcp) — AI-driven automation flows for real iOS devices.
+Community marketplace of YAML scenarios for [iphone-mirroir-mcp](https://github.com/jfarcand/iphone-mirroir-mcp) — AI-driven automation flows for real iOS devices.
 
 ## What Are Scenarios?
 
