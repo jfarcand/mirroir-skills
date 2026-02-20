@@ -2,9 +2,9 @@
   <img src="https://raw.githubusercontent.com/jfarcand/iphone-mirroir-mcp/main/website/public/mirroir-wordmark.svg" alt="iphone-mirroir-mcp" width="128" />
 </p>
 
-# iphone-mirroir-scenarios
+# mirroir-scenarios
 
-Community marketplace of YAML scenarios for [iphone-mirroir-mcp](https://github.com/jfarcand/iphone-mirroir-mcp) — AI-driven automation flows for real iOS devices.
+Community marketplace of YAML scenarios for [mirroir-mcp](https://github.com/jfarcand/iphone-mirroir-mcp) — AI-driven automation flows for real iOS devices.
 
 ## What Are Scenarios?
 
@@ -49,13 +49,13 @@ Both install the [SKILL.md](plugins/scenarios/skills/scenarios/SKILL.md) which t
 Clone into your global scenarios directory:
 
 ```bash
-git clone https://github.com/jfarcand/iphone-mirroir-scenarios ~/.iphone-mirroir-mcp/scenarios
+git clone https://github.com/jfarcand/iphone-mirroir-scenarios ~/.mirroir-mcp/scenarios
 ```
 
 Or into a project-local directory:
 
 ```bash
-git clone https://github.com/jfarcand/iphone-mirroir-scenarios .iphone-mirroir-mcp/scenarios
+git clone https://github.com/jfarcand/iphone-mirroir-scenarios .mirroir-mcp/scenarios
 ```
 
 Both paths are scanned recursively by `list_scenarios`.
@@ -66,13 +66,19 @@ Both paths are scanned recursively by `list_scenarios`.
 
 | Scenario | Description |
 |----------|-------------|
+| `apps/appstore/install-app` | Search for an app in the App Store and install it |
 | `apps/calendar/create-event` | Create a new calendar event |
 | `apps/calendar/check-today` | Read today's events using `remember` to extract meeting details |
 | `apps/clock/set-alarm` | Create a new alarm |
 | `apps/clock/set-timer` | Start a countdown timer and verify it's running |
+| `apps/mail/email-triage` | Check inbox for unread email — archive or flag based on content |
+| `apps/mail/batch-archive` | Archive all unread emails in a loop until inbox is empty |
 | `apps/maps/save-directions` | Search for a destination, get directions, extract travel time with `remember` |
 | `apps/photos/share-recent` | Long-press a recent photo and share it via Messages |
 | `apps/settings/check-about` | Extract device model, iOS version, and storage via `remember` |
+| `apps/settings/check-about-fr` | Same as check-about but for French locale (Réglages) |
+| `apps/settings/list-apps` | List installed apps with sizes from iPhone Storage |
+| `apps/settings/uninstall-app` | Remove an app via Settings > General > iPhone Storage |
 | `apps/slack/send-message` | Send a DM to a contact |
 | `apps/slack/check-unread` | Read unread notifications with channel names and message previews |
 | `apps/weather/check-forecast` | Extract current conditions and 10-day forecast with `remember` |
@@ -84,6 +90,7 @@ Both paths are scanned recursively by `list_scenarios`.
 |----------|-------------|
 | `testing/expo-go/login-flow` | Test login with conditional branching for signup vs existing account |
 | `testing/expo-go/shake-debug-menu` | Open React Native debug menu via shake |
+| `testing/expo-go/qa-smoke-pack` | Visual regression test — screenshot key screens and use `remember` to detect UI anomalies |
 
 ### Workflows
 
@@ -92,9 +99,6 @@ Both paths are scanned recursively by `list_scenarios`.
 | `workflows/morning-briefing` | Read weather + calendar, compose and send a morning summary via iMessage |
 | `workflows/commute-eta-notify` | Get ETA from Waze, send it to your boss via Messages |
 | `workflows/standup-autoposter` | Read today's meetings from Calendar, post standup to Slack |
-| `workflows/qa-smoke-pack` | Visual regression test — screenshot key screens and use `remember` to detect UI anomalies |
-| `workflows/email-triage` | Check inbox for unread email — archive or flag based on content |
-| `workflows/batch-archive` | Archive all unread emails in a loop until inbox is empty |
 
 Workflows demonstrate **cross-app data extraction** — the AI reads dynamic content from one app and composes it into actions in another. This is something only an AI executor can do.
 
@@ -137,7 +141,7 @@ A condition step has:
 - **`then`** (required) — steps to run when the condition is true
 - **`else`** (optional) — steps to run when the condition is false
 
-Steps inside branches are regular steps, including nested conditions. See `workflows/email-triage.yaml` for a full example.
+Steps inside branches are regular steps, including nested conditions. See `apps/mail/email-triage.yaml` for a full example.
 
 ## Repeats
 
@@ -162,7 +166,7 @@ A repeat step has:
 - **`max`** (required) — safety bound to prevent infinite loops
 - **`steps`** (required) — steps to run each iteration
 
-See `workflows/batch-archive.yaml` for a full example.
+See `apps/mail/batch-archive.yaml` for a full example.
 
 ## Validation
 
@@ -184,9 +188,9 @@ The CLA ensures the project can be maintained long-term under a consistent licen
 
 1. Fork this repository
 2. Create your scenario in the appropriate directory:
-   - `apps/<app-name>/` for iOS app automation
-   - `testing/<framework>/` for mobile testing frameworks
-   - `workflows/` for multi-app sequences
+   - `apps/<app-name>/` for single-app iOS automation
+   - `testing/<framework>/` for mobile testing and QA
+   - `workflows/` for multi-app sequences that extract data across apps
 3. Follow the YAML format:
    ```yaml
    name: Human-readable name
