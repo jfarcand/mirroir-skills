@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# ABOUTME: Validation script for mirroir-scenarios YAML files.
-# ABOUTME: Checks required fields, step types, variable syntax, and metadata formats.
+# ABOUTME: Validation script for mirroir-scenarios files (SKILL.md and YAML).
+# ABOUTME: Checks required fields, step types, variable syntax, metadata formats, and front matter.
 
 """
-Validate all scenario YAML files under apps/, testing/, and workflows/.
+Validate all scenario files under apps/, testing/, workflows/, and legacy/.
 
+Supports both SKILL.md (.md) files and legacy YAML (.yaml) files.
 Exit 0 if no errors (warnings are OK), exit 1 if any error found.
 """
 
@@ -91,6 +92,11 @@ VALID_STEP_TYPES = {
     "open_url",
     "shake",
     "remember",
+    "scroll_to",
+    "set_network",
+    "reset_app",
+    "target",
+    "measure",
     "condition",
     "repeat",
 }
@@ -98,7 +104,9 @@ VALID_STEP_TYPES = {
 VALID_CONDITION_TYPES = {"if_visible", "if_not_visible"}
 VALID_REPEAT_MODES = {"while_visible", "until_visible", "times"}
 
-REQUIRED_FIELDS = {"name", "app", "description", "steps"}
+REQUIRED_YAML_FIELDS = {"name", "app", "description", "steps"}
+REQUIRED_MD_FRONT_MATTER = {"version", "name"}
+OPTIONAL_MD_FRONT_MATTER = {"app", "ios_min", "locale", "tags", "description"}
 
 SEMVER_ISH = re.compile(r"^\d+\.\d+(\.\d+)?$")
 LOCALE_CODE = re.compile(r"^[a-z]{2}_[A-Z]{2}$")
@@ -106,15 +114,32 @@ VARIABLE_SYNTAX = re.compile(r"\$\{[^}]*\}")
 MALFORMED_VARIABLE = re.compile(r"\$\{[^A-Za-z_]|\$\{[^}]*[^A-Za-z0-9_:}./-]")
 
 # ---------------------------------------------------------------------------
-# Validation logic.
+# Directories to scan for each file type.
 # ---------------------------------------------------------------------------
 
-SCENARIO_DIRS = ["apps", "testing", "workflows"]
+MD_SCENARIO_DIRS = ["apps", "testing", "workflows", "ci"]
+YAML_SCENARIO_DIRS = ["legacy"]
+
+# ---------------------------------------------------------------------------
+# File discovery.
+# ---------------------------------------------------------------------------
 
 
-def find_scenario_files(root):
-    """Walk SCENARIO_DIRS and yield paths to .yaml files."""
-    for dirname in SCENARIO_DIRS:
+def find_md_files(root):
+    """Walk MD_SCENARIO_DIRS and yield paths to .md files."""
+    for dirname in MD_SCENARIO_DIRS:
+        dirpath = os.path.join(root, dirname)
+        if not os.path.isdir(dirpath):
+            continue
+        for dirpath_walk, _, filenames in os.walk(dirpath):
+            for fname in sorted(filenames):
+                if fname.endswith(".md"):
+                    yield os.path.join(dirpath_walk, fname)
+
+
+def find_yaml_files(root):
+    """Walk YAML_SCENARIO_DIRS and yield paths to .yaml files."""
+    for dirname in YAML_SCENARIO_DIRS:
         dirpath = os.path.join(root, dirname)
         if not os.path.isdir(dirpath):
             continue
@@ -122,6 +147,145 @@ def find_scenario_files(root):
             for fname in sorted(filenames):
                 if fname.endswith(".yaml"):
                     yield os.path.join(dirpath_walk, fname)
+
+
+# ---------------------------------------------------------------------------
+# SKILL.md front matter parsing.
+# ---------------------------------------------------------------------------
+
+
+def parse_front_matter(text):
+    """Parse YAML front matter from a markdown file (between --- delimiters).
+
+    Returns (front_matter_dict, body_text) or (None, text) if no front matter.
+    """
+    if not text.startswith("---"):
+        return None, text
+
+    # Find the closing ---
+    end_idx = text.find("\n---", 3)
+    if end_idx == -1:
+        return None, text
+
+    front_matter_raw = text[4:end_idx]  # skip opening "---\n"
+    body = text[end_idx + 4:]  # skip closing "\n---"
+
+    # Parse the front matter as simple key: value pairs
+    data = {}
+    for line in front_matter_raw.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        match = re.match(r'^(\w+):\s*(.*)', line)
+        if match:
+            key = match.group(1)
+            value = match.group(2).strip()
+            # Strip surrounding quotes
+            if (value.startswith('"') and value.endswith('"')) or \
+               (value.startswith("'") and value.endswith("'")):
+                value = value[1:-1]
+            # Parse inline arrays for tags
+            if key == "tags" and value.startswith("["):
+                inner = value[1:-1] if value.endswith("]") else value[1:]
+                data[key] = [t.strip().strip('"').strip("'") for t in inner.split(",") if t.strip()]
+            else:
+                data[key] = value
+
+    return data, body
+
+
+# ---------------------------------------------------------------------------
+# SKILL.md validation.
+# ---------------------------------------------------------------------------
+
+
+def validate_md_file(filepath, root):
+    """Validate a single SKILL.md scenario file. Returns (errors, warnings) lists."""
+    errors = []
+    warnings = []
+    rel = os.path.relpath(filepath, root)
+
+    try:
+        with open(filepath, "r", encoding="utf-8") as fh:
+            text = fh.read()
+    except Exception as exc:
+        errors.append(f"  ERROR  {rel}: failed to read file: {exc}")
+        return errors, warnings
+
+    if not text.strip():
+        errors.append(f"  ERROR  {rel}: empty file")
+        return errors, warnings
+
+    # Parse front matter
+    front_matter, body = parse_front_matter(text)
+
+    if front_matter is None:
+        errors.append(f"  ERROR  {rel}: missing YAML front matter (must start with ---)")
+        return errors, warnings
+
+    # Check required front matter fields
+    for field in REQUIRED_MD_FRONT_MATTER:
+        if field not in front_matter or not front_matter[field]:
+            errors.append(f"  ERROR  {rel}: missing required front matter field '{field}'")
+
+    # Validate version
+    version = front_matter.get("version")
+    if version is not None:
+        try:
+            version_int = int(version)
+            if version_int != 1:
+                errors.append(f"  ERROR  {rel}: unsupported front matter version '{version}' (expected 1)")
+        except (ValueError, TypeError):
+            errors.append(f"  ERROR  {rel}: front matter version must be an integer, got '{version}'")
+
+    # Validate optional metadata fields
+    ios_min = front_matter.get("ios_min")
+    if ios_min is not None:
+        if not SEMVER_ISH.match(str(ios_min)):
+            errors.append(f"  ERROR  {rel}: ios_min '{ios_min}' is not semver-ish (e.g. '17.0')")
+
+    tags = front_matter.get("tags")
+    if tags is not None:
+        if not isinstance(tags, list):
+            errors.append(f"  ERROR  {rel}: tags must be a list of strings")
+        elif not all(isinstance(t, str) for t in tags):
+            errors.append(f"  ERROR  {rel}: tags must be a list of strings")
+
+    locale = front_matter.get("locale")
+    if locale is not None:
+        if not LOCALE_CODE.match(str(locale)):
+            errors.append(f"  ERROR  {rel}: locale '{locale}' is not a valid locale code (e.g. 'en_US')")
+
+    # Check for unknown front matter fields
+    known_fields = REQUIRED_MD_FRONT_MATTER | OPTIONAL_MD_FRONT_MATTER
+    for key in front_matter:
+        if key not in known_fields:
+            warnings.append(f"  WARN   {rel}: unknown front matter field '{key}'")
+
+    # Validate variable syntax in the body
+    for match in VARIABLE_SYNTAX.finditer(text):
+        var_expr = match.group(0)
+        inner = var_expr[2:-1]  # strip ${ and }
+        if not re.match(r'^[A-Za-z_][A-Za-z0-9_]*(?::-[^}]*)?$', inner):
+            errors.append(f"  ERROR  {rel}: malformed variable syntax '{var_expr}'")
+
+    # Detect unclosed ${
+    for line_num, line in enumerate(text.splitlines(), 1):
+        opens = line.count("${")
+        closes = line.count("}")
+        if opens > closes:
+            errors.append(f"  ERROR  {rel}:{line_num}: unclosed '${{' in variable expression")
+
+    # Check body has content
+    if not body.strip():
+        warnings.append(f"  WARN   {rel}: empty body (no steps)")
+
+    return errors, warnings
+
+
+# ---------------------------------------------------------------------------
+# YAML validation logic.
+# ---------------------------------------------------------------------------
 
 
 def validate_condition(cond, rel, path, depth=0):
@@ -235,6 +399,9 @@ def validate_repeat(rep, rel, path, depth=0):
     return errors, has_assert
 
 
+VALID_BARE_KEYWORDS = {"home", "press_home", "shake"}
+
+
 def validate_steps(steps, rel, prefix, depth=0):
     """Validate a list of steps. Returns (errors, has_assert)."""
     errors = []
@@ -242,6 +409,11 @@ def validate_steps(steps, rel, prefix, depth=0):
 
     for i, step in enumerate(steps):
         step_label = f"{prefix} {i + 1}"
+        # Bare keyword steps like `- home` are parsed as strings by PyYAML
+        if isinstance(step, str):
+            if step not in VALID_BARE_KEYWORDS:
+                errors.append(f"  ERROR  {rel}: unknown bare keyword '{step}' at {step_label}")
+            continue
         if not isinstance(step, dict):
             errors.append(f"  ERROR  {rel}: {step_label} is not a mapping")
             continue
@@ -262,8 +434,8 @@ def validate_steps(steps, rel, prefix, depth=0):
     return errors, has_assert
 
 
-def validate_file(filepath, root):
-    """Validate a single scenario file. Returns (errors, warnings) lists."""
+def validate_yaml_file(filepath, root):
+    """Validate a single YAML scenario file. Returns (errors, warnings) lists."""
     errors = []
     warnings = []
     rel = os.path.relpath(filepath, root)
@@ -279,7 +451,7 @@ def validate_file(filepath, root):
         return errors, warnings
 
     # --- Required fields ---
-    for field in REQUIRED_FIELDS:
+    for field in REQUIRED_YAML_FIELDS:
         if field not in data or data[field] is None:
             errors.append(f"  ERROR  {rel}: missing required field '{field}'")
 
@@ -337,19 +509,29 @@ def main():
 
     all_errors = []
     all_warnings = []
-    file_count = 0
+    md_count = 0
+    yaml_count = 0
 
-    for filepath in find_scenario_files(root):
-        file_count += 1
-        errs, warns = validate_file(filepath, root)
+    # Validate SKILL.md files
+    for filepath in find_md_files(root):
+        md_count += 1
+        errs, warns = validate_md_file(filepath, root)
         all_errors.extend(errs)
         all_warnings.extend(warns)
 
-    if file_count == 0:
+    # Validate legacy YAML files
+    for filepath in find_yaml_files(root):
+        yaml_count += 1
+        errs, warns = validate_yaml_file(filepath, root)
+        all_errors.extend(errs)
+        all_warnings.extend(warns)
+
+    total = md_count + yaml_count
+    if total == 0:
         print("No scenario files found.")
         sys.exit(1)
 
-    print(f"Validated {file_count} scenario files.\n")
+    print(f"Validated {total} scenario files ({md_count} SKILL.md, {yaml_count} YAML).\n")
 
     for w in all_warnings:
         print(w)

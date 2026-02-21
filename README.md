@@ -4,11 +4,38 @@
 
 # mirroir-scenarios
 
-Community marketplace of YAML scenarios for [mirroir-mcp](https://github.com/jfarcand/mirroir-mcp) — AI-driven automation flows for real iOS devices.
+Community marketplace of scenarios for [mirroir-mcp](https://github.com/jfarcand/mirroir-mcp) — AI-driven automation flows for real iOS devices.
 
 ## What Are Scenarios?
 
-Scenarios are YAML files that describe multi-step iOS automation as **intents**, not scripts. Steps like `tap: "Email"` don't hardcode coordinates — the AI finds elements via OCR and adapts to screen layout, localization, and unexpected dialogs.
+Scenarios describe multi-step iOS automation as **intents**, not scripts. Steps like "Tap Email" don't hardcode coordinates — the AI finds elements via OCR and adapts to screen layout, localization, and unexpected dialogs.
+
+The primary format is **SKILL.md** — markdown files with YAML front matter:
+
+```markdown
+---
+version: 1
+name: Send Slack Message
+app: Slack
+tags: ["slack", "messaging"]
+---
+
+Send a direct message to a contact in Slack.
+
+## Steps
+
+1. Launch **Slack**
+2. Wait for "Home" to appear
+3. Tap "Direct Messages"
+4. Tap "${RECIPIENT}"
+5. Tap "Message"
+6. Type "${MESSAGE:-Hey, just checking in!}"
+7. Press **Return**
+8. Screenshot: "message_sent"
+```
+
+<details>
+<summary>Legacy YAML format (used by <code>mirroir test</code> and <code>mirroir compile</code>)</summary>
 
 ```yaml
 name: Send Slack Message
@@ -26,6 +53,10 @@ steps:
   - screenshot: "message_sent"
 ```
 
+YAML files live in the `legacy/` directory. They are used by the deterministic `mirroir test` and `mirroir compile` CLI tools which require structured step definitions. Use `mirroir migrate` to convert YAML to SKILL.md format.
+
+</details>
+
 ## Installation
 
 ### Claude Code
@@ -42,7 +73,7 @@ copilot plugin marketplace add jfarcand/mirroir-scenarios
 copilot plugin install scenarios@mirroir-scenarios
 ```
 
-Both install the [SKILL.md](plugins/scenarios/skills/scenarios/SKILL.md) which teaches the AI how to interpret and execute scenario steps.
+Both install the [SKILL.md](.claude/skills/scenarios/SKILL.md) which teaches the AI how to interpret and execute scenario steps.
 
 ### Manual (all other clients)
 
@@ -141,7 +172,7 @@ A condition step has:
 - **`then`** (required) — steps to run when the condition is true
 - **`else`** (optional) — steps to run when the condition is false
 
-Steps inside branches are regular steps, including nested conditions. See `apps/mail/email-triage.yaml` for a full example.
+Steps inside branches are regular steps, including nested conditions. See `apps/mail/email-triage.md` for a full example.
 
 ## Repeats
 
@@ -166,17 +197,29 @@ A repeat step has:
 - **`max`** (required) — safety bound to prevent infinite loops
 - **`steps`** (required) — steps to run each iteration
 
-See `apps/mail/batch-archive.yaml` for a full example.
+See `apps/mail/batch-archive.md` for a full example.
+
+## Migration from YAML
+
+The `mirroir migrate` command converts YAML scenarios to SKILL.md format:
+
+```bash
+mirroir migrate apps/settings/check-about.yaml           # single file
+mirroir migrate --dir ../iphone-mirroir-scenarios/apps    # entire directory
+mirroir migrate --dry-run apps/mail/email-triage.yaml     # preview without writing
+```
+
+Legacy YAML files live in the `legacy/` directory and remain accessible for the deterministic `mirroir test` and `mirroir compile` CLI tools.
 
 ## Validation
 
-Run the validation script to check all scenarios for required fields, valid step types, and correct variable syntax:
+Run the validation script to check all scenarios for required fields, valid metadata, and correct variable syntax:
 
 ```bash
 python3 scripts/validate-scenarios.py
 ```
 
-This runs automatically on push and PR via GitHub Actions.
+This validates both SKILL.md files (in `apps/`, `testing/`, `workflows/`, `ci/`) and legacy YAML files (in `legacy/`). It runs automatically on push and PR via GitHub Actions.
 
 ## Contributing
 
@@ -191,25 +234,30 @@ The CLA ensures the project can be maintained long-term under a consistent licen
    - `apps/<app-name>/` for single-app iOS automation
    - `testing/<framework>/` for mobile testing and QA
    - `workflows/` for multi-app sequences that extract data across apps
-3. Follow the YAML format:
-   ```yaml
+3. Use the SKILL.md format:
+   ```markdown
+   ---
+   version: 1
    name: Human-readable name
    app: App Name
-   description: What this scenario does
    ios_min: "17.0"
    locale: "en_US"
    tags: ["app-name", "category", "action-type"]
+   ---
 
-   steps:
-     - launch: "App Name"
-     - wait_for: "Expected Element"
-     - tap: "Element Label"
-     - type: "${VAR:-sensible default}"
-     - assert_visible: "Success Indicator"
-     - screenshot: "result"
+   What this scenario does.
+
+   ## Steps
+
+   1. Launch **App Name**
+   2. Wait for "Expected Element" to appear
+   3. Tap "Element Label"
+   4. Type "${VAR:-sensible default}"
+   5. Verify "Success Indicator" is visible
+   6. Screenshot: "result"
    ```
 4. Use `${VAR:-default}` for configurable values, never hardcode credentials
-5. Include at least one `assert_visible` step so the scenario is self-verifying
+5. Include at least one "Verify" step so the scenario is self-verifying
 6. Submit a pull request
 
 ## License

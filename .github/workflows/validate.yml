@@ -16,9 +16,9 @@ name: Validate Scenarios
 on:
   push:
     branches: [main]
-    paths: ['**.yaml', 'scripts/**']
+    paths: ['**.yaml', '**.md', 'scripts/**']
   pull_request:
-    paths: ['**.yaml', 'scripts/**']
+    paths: ['**.yaml', '**.md', 'scripts/**']
 jobs:
   validate:
     runs-on: ubuntu-latest

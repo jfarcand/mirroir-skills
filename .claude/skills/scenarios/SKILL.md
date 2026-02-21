@@ -1,21 +1,25 @@
 ---
 name: mirroir-scenarios
-description: Community scenarios for iPhone Mirroring MCP. Provides ready-made YAML scenarios for automating iOS apps via AI-driven screen interaction.
+description: Community scenarios for iPhone Mirroring MCP. Provides ready-made scenarios (SKILL.md and YAML) for automating iOS apps via AI-driven screen interaction.
 ---
 
 # iPhone Mirroring Scenarios
 
-This skill provides community-contributed YAML scenarios for [mirroir-mcp](https://github.com/jfarcand/mirroir-mcp), the MCP server that gives AI agents control of a real iPhone screen.
+This skill provides community-contributed scenarios for [mirroir-mcp](https://github.com/jfarcand/mirroir-mcp), the MCP server that gives AI agents control of a real iPhone screen.
+
+Scenarios come in two formats:
+- **SKILL.md** (`.md`) — natural-language markdown with YAML front matter, the primary format for AI execution
+- **YAML** (`.yaml`) — structured step definitions in `legacy/`, used by the deterministic `mirroir test` and `mirroir compile` CLI tools
 
 ## How Scenarios Work
 
-Scenarios are YAML files that describe multi-step iOS automation flows as **intents**, not scripts. Steps like `tap: "Email"` don't specify coordinates — you (the AI) find the element using `describe_screen` and adapt to the actual screen layout.
+Scenarios describe multi-step iOS automation flows as **intents**, not scripts. Steps like "Tap Email" don't specify coordinates — you (the AI) find the element using `describe_screen` and adapt to the actual screen layout.
 
 ## Executing a Scenario
 
 1. Use `list_scenarios` to discover available scenarios
 2. Use `get_scenario` with the scenario name to load it (e.g. `get_scenario("apps/slack/send-message")`)
-3. Read the YAML steps and execute each one using the appropriate MCP tools
+3. Read the steps and execute each one using the appropriate MCP tools
 
 ## Step Type Reference
 
@@ -91,10 +95,13 @@ Steps inside `repeat` are regular steps — including `condition` and nested `re
 
 ## Scenario Metadata
 
-Scenarios may include optional metadata fields between `description:` and `steps:`:
+Scenarios include metadata in the YAML front matter (for `.md` files) or as top-level keys (for `.yaml` files):
 
 | Field | Purpose |
 |-------|---------|
+| `version` | Format version (currently `1`). Required in `.md` files. |
+| `name` | Human-readable scenario name. |
+| `app` | Target iOS app name. |
 | `ios_min` | Minimum iOS version (e.g. `"17.0"`). Skip the scenario if the device is below this version. |
 | `locale` | Expected locale (e.g. `"en_US"`, `"fr_CA"`). Adapt UI labels if the phone's locale differs. |
 | `tags` | List of strings for discovery (e.g. `["calendar", "create"]`). Used for filtering, not execution. |
