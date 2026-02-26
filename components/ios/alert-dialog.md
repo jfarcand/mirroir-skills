@@ -17,6 +17,7 @@ Modal alert dialog with dismiss/confirm buttons.
 
 ## Match Rules
 
+- has_dismiss_button: true
 - min_elements: 1
 - max_elements: 4
 - max_row_height_pt: 200

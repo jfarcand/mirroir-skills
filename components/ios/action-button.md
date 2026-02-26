@@ -17,6 +17,7 @@ Standalone button for triggering an action.
 
 ## Match Rules
 
+- has_numeric_value: false
 - min_elements: 1
 - max_elements: 1
 - max_row_height_pt: 60

@@ -19,7 +19,7 @@ Tab-like selector with 2-4 short labels for switching content views.
 ## Match Rules
 
 - min_elements: 2
-- max_elements: 4
+- max_elements: 6
 - max_row_height_pt: 50
 - zone: content
 

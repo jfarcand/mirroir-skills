@@ -37,4 +37,4 @@ Common in Health, Fitness, and dashboard-style apps.
 
 - absorbs_same_row: true
 - absorbs_below_within_pt: 80
-- absorb_condition: info_or_decoration_only
+- absorb_condition: any
