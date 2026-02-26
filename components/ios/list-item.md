@@ -19,6 +19,7 @@ Simple list item without chevron that may still be tappable.
 ## Match Rules
 
 - row_has_chevron: false
+- has_numeric_value: false
 - min_elements: 1
 - max_elements: 2
 - max_row_height_pt: 90

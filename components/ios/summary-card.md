@@ -20,10 +20,10 @@ Common in Health, Fitness, and dashboard-style apps.
 
 ## Match Rules
 
+- row_has_chevron: true
 - min_elements: 2
-- max_elements: 6
+- max_elements: 3
 - max_row_height_pt: 120
-- has_numeric_value: true
 - zone: content
 
 ## Interaction
@@ -36,5 +36,5 @@ Common in Health, Fitness, and dashboard-style apps.
 ## Grouping
 
 - absorbs_same_row: true
-- absorbs_below_within_pt: 50
+- absorbs_below_within_pt: 80
 - absorb_condition: info_or_decoration_only
