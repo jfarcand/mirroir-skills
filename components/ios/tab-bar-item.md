@@ -44,3 +44,4 @@ These are global navigation controls, not drill-down navigation.
 - absorbs_same_row: false
 - absorbs_below_within_pt: 0
 - absorb_condition: any
+- split_mode: per_item
