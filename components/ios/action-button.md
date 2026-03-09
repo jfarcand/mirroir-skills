@@ -30,6 +30,12 @@ Standalone button for triggering an action.
 - click_result: pushes_screen
 - back_after_click: true
 
+## Exploration
+
+- explorable: true
+- role: action
+- priority: low
+
 ## Grouping
 
 - absorbs_same_row: false

@@ -35,6 +35,12 @@ the correct tap target to escape back to the previous screen.
 - click_result: dismisses
 - back_after_click: false
 
+## Exploration
+
+- explorable: false
+- role: info
+- priority: normal
+
 ## Grouping
 
 - absorbs_same_row: true

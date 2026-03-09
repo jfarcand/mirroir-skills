@@ -29,6 +29,12 @@ Search field, typically near the top of the screen.
 - click_result: mutates_in_place
 - back_after_click: true
 
+## Exploration
+
+- explorable: false
+- role: action
+- priority: normal
+
 ## Grouping
 
 - absorbs_same_row: true

@@ -33,6 +33,12 @@ The back chevron and action buttons are clickable navigation targets.
 - click_result: dismisses
 - back_after_click: true
 
+## Exploration
+
+- explorable: false
+- role: info
+- priority: normal
+
 ## Grouping
 
 - absorbs_same_row: true

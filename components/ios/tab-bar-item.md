@@ -32,6 +32,12 @@ These are global navigation controls, not drill-down navigation.
 - click_result: switches_context
 - back_after_click: false
 
+## Exploration
+
+- explorable: true
+- role: breadth_navigation
+- priority: high
+
 ## Grouping
 
 - absorbs_same_row: false

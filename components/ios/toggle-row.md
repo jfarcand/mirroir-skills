@@ -31,6 +31,12 @@ Row with a switch/toggle control that should be skipped during exploration.
 - click_result: mutates_in_place
 - back_after_click: false
 
+## Exploration
+
+- explorable: false
+- role: action
+- priority: normal
+
 ## Grouping
 
 - absorbs_same_row: true

@@ -30,6 +30,12 @@ Modal alert dialog with dismiss/confirm buttons.
 - click_result: dismisses
 - back_after_click: false
 
+## Exploration
+
+- explorable: false
+- role: info
+- priority: normal
+
 ## Grouping
 
 - absorbs_same_row: true
