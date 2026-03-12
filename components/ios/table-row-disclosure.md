@@ -36,5 +36,5 @@ navigation element in iOS settings-style apps.
 ## Grouping
 
 - absorbs_same_row: true
-- absorbs_below_within_pt: 0
-- absorb_condition: any
+- absorbs_below_within_pt: 80
+- absorb_condition: no_chevron_rows_only
