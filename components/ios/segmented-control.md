@@ -33,9 +33,9 @@ Tab-like selector with 2-4 short labels for switching content views.
 
 ## Exploration
 
-- explorable: true
-- role: breadth_navigation
-- priority: high
+- explorable: false
+- role: filter
+- priority: low
 
 ## Grouping
 
