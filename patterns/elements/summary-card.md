@@ -23,6 +23,7 @@ combine the title, value, and timestamp into a single element (e.g.
 ## Match Rules
 
 - chevron_mode: preferred
+- has_numeric_value: true
 - min_elements: 2
 - max_elements: 3
 - max_row_height_pt: 120

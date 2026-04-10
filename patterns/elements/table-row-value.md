@@ -24,7 +24,7 @@ table-row-detail by having a chevron indicating the value is tappable/changeable
 
 - row_has_chevron: true
 - has_numeric_value: false
-- min_elements: 2
+- min_elements: 3
 - max_elements: 4
 - max_row_height_pt: 90
 - zone: content

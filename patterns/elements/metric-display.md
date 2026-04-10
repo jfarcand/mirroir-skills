@@ -23,8 +23,9 @@ navigation but serves as a key landmark on the screen.
 ## Match Rules
 
 - has_numeric_value: true
+- row_has_chevron: false
 - min_elements: 1
-- max_elements: 3
+- max_elements: 1
 - max_row_height_pt: 80
 - zone: content
 - text_pattern: \d+[\.,]?\d*\s*(°|bpm|pas|km|mi|cal|kcal|min|h|%|mg|mmHg|steps)?$
