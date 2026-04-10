@@ -4,7 +4,65 @@
 
 # mirroir-skills
 
-Community marketplace of skills for [mirroir-mcp](https://github.com/jfarcand/mirroir-mcp) — AI-driven automation flows for real iOS devices.
+Community marketplace of **patterns** and **skills** for [mirroir-mcp](https://github.com/jfarcand/mirroir-mcp) — AI-driven automation for real iOS devices.
+
+## Patterns vs Skills
+
+mirroir uses two complementary concepts:
+
+- **Patterns** (declarative) — teach mirroir what iOS apps look like and how they behave. Read-only knowledge.
+- **Skills** (imperative) — step-by-step flows the AI executes. Actions.
+
+Patterns come in three scales — same concept, different granularity:
+
+| Scale | What it describes | Location |
+|-------|------------------|----------|
+| **Element patterns** | Row-level UI components (table rows, tab bars, buttons) | `patterns/elements/` |
+| **Screen patterns** | Screen archetypes from element composition (dashboard, feed) | `patterns/screens/` |
+| **App patterns** | App-level structure, obstacles, skip lists (APP.md) | `patterns/apps/` |
+
+```
+mirroir-skills/
+├── patterns/
+│   ├── elements/    # 34 iOS UI element definitions
+│   ├── screens/     # 7 screen archetype recipes
+│   └── apps/        # APP.md app descriptions
+├── skills/
+│   ├── apps/        # Per-app automation flows
+│   ├── workflows/   # Cross-app sequences
+│   └── testing/     # Test flows
+└── legacy/          # Old YAML skills (deterministic runners)
+```
+
+## APP.md — Describe Your App
+
+The most impactful thing you can contribute is an APP.md for your favorite iOS app. Tell mirroir what the app is, where the dangers are, and what obstacles to expect:
+
+```markdown
+---
+version: 1
+app: Santé
+locale: fr_CA
+archetype: dashboard
+obstacle_mode: auto
+---
+
+## Structure
+Dashboard with 4 tabs: Résumé, Partage, Parcourir, Profil.
+
+## Résumé Tab
+- Summary cards for health metrics that drill down to charts
+
+## Obstacles
+- Health Access permission → tap "Autoriser"
+- Notification permission → tap "Ne pas autoriser"
+
+## Skip
+- Supprimer les données de Santé
+- Réinitialiser
+```
+
+The `archetype` field tells mirroir how the app navigates (`dashboard`, `social-feed`, `settings-list`, `content-grid`, `conversation-list`, `utility-display`, `detail-form`). Obstacles are auto-dismissed during exploration. Skip elements are never tapped. Structure is injected into generated skills as AI context.
 
 ## What Are Skills?
 
@@ -93,43 +151,43 @@ Both paths are scanned recursively by `list_skills`.
 
 ## Available Skills
 
-### Apps
+### App Skills
 
 | Skill | Description |
 |-------|-------------|
-| `apps/appstore/install-app` | Search for an app in the App Store and install it |
-| `apps/calendar/create-event` | Create a new calendar event |
-| `apps/calendar/check-today` | Read today's events using `remember` to extract meeting details |
-| `apps/clock/set-alarm` | Create a new alarm |
-| `apps/clock/set-timer` | Start a countdown timer and verify it's running |
-| `apps/mail/email-triage` | Check inbox for unread email — archive or flag based on content |
-| `apps/mail/batch-archive` | Archive all unread emails in a loop until inbox is empty |
-| `apps/maps/save-directions` | Search for a destination, get directions, extract travel time with `remember` |
-| `apps/photos/share-recent` | Long-press a recent photo and share it via Messages |
-| `apps/settings/check-about` | Extract device model, iOS version, and storage via `remember` |
-| `apps/settings/check-about-fr` | Same as check-about but for French locale (Réglages) |
-| `apps/settings/list-apps` | List installed apps with sizes from iPhone Storage |
-| `apps/settings/uninstall-app` | Remove an app via Settings > General > iPhone Storage |
-| `apps/slack/send-message` | Send a DM to a contact |
-| `apps/slack/check-unread` | Read unread notifications with channel names and message previews |
-| `apps/weather/check-forecast` | Extract current conditions and 10-day forecast with `remember` |
-| `apps/weather/add-city` | Add a city to Weather |
+| `skills/apps/appstore/install-app` | Search for an app in the App Store and install it |
+| `skills/apps/calendar/create-event` | Create a new calendar event |
+| `skills/apps/calendar/check-today` | Read today's events using `remember` to extract meeting details |
+| `skills/apps/clock/set-alarm` | Create a new alarm |
+| `skills/apps/clock/set-timer` | Start a countdown timer and verify it's running |
+| `skills/apps/mail/email-triage` | Check inbox for unread email — archive or flag based on content |
+| `skills/apps/mail/batch-archive` | Archive all unread emails in a loop until inbox is empty |
+| `skills/apps/maps/save-directions` | Search for a destination, get directions, extract travel time with `remember` |
+| `skills/apps/photos/share-recent` | Long-press a recent photo and share it via Messages |
+| `skills/apps/settings/check-about` | Extract device model, iOS version, and storage via `remember` |
+| `skills/apps/settings/check-about-fr` | Same as check-about but for French locale (Réglages) |
+| `skills/apps/settings/list-apps` | List installed apps with sizes from iPhone Storage |
+| `skills/apps/settings/uninstall-app` | Remove an app via Settings > General > iPhone Storage |
+| `skills/apps/slack/send-message` | Send a DM to a contact |
+| `skills/apps/slack/check-unread` | Read unread notifications with channel names and message previews |
+| `skills/apps/weather/check-forecast` | Extract current conditions and 10-day forecast with `remember` |
+| `skills/apps/weather/add-city` | Add a city to Weather |
 
 ### Testing
 
 | Skill | Description |
 |-------|-------------|
-| `testing/expo-go/login-flow` | Test login with conditional branching for signup vs existing account |
-| `testing/expo-go/shake-debug-menu` | Open React Native debug menu via shake |
-| `testing/expo-go/qa-smoke-pack` | Visual regression test — screenshot key screens and use `remember` to detect UI anomalies |
+| `skills/testing/expo-go/login-flow` | Test login with conditional branching for signup vs existing account |
+| `skills/testing/expo-go/shake-debug-menu` | Open React Native debug menu via shake |
+| `skills/testing/expo-go/qa-smoke-pack` | Visual regression test — screenshot key screens and use `remember` to detect UI anomalies |
 
 ### Workflows
 
 | Skill | Description |
 |-------|-------------|
-| `workflows/morning-briefing` | Read weather + calendar, compose and send a morning summary via iMessage |
-| `workflows/commute-eta-notify` | Get ETA from Waze, send it to your boss via Messages |
-| `workflows/standup-autoposter` | Read today's meetings from Calendar, post standup to Slack |
+| `skills/workflows/morning-briefing` | Read weather + calendar, compose and send a morning summary via iMessage |
+| `skills/workflows/commute-eta-notify` | Get ETA from Waze, send it to your boss via Messages |
+| `skills/workflows/standup-autoposter` | Read today's meetings from Calendar, post standup to Slack |
 
 Workflows demonstrate **cross-app data extraction** — the AI reads dynamic content from one app and composes it into actions in another. This is something only an AI executor can do.
 
@@ -172,7 +230,7 @@ A condition step has:
 - **`then`** (required) — steps to run when the condition is true
 - **`else`** (optional) — steps to run when the condition is false
 
-Steps inside branches are regular steps, including nested conditions. See `apps/mail/email-triage.md` for a full example.
+Steps inside branches are regular steps, including nested conditions. See `skills/apps/mail/email-triage.md` for a full example.
 
 ## Repeats
 
@@ -197,7 +255,7 @@ A repeat step has:
 - **`max`** (required) — safety bound to prevent infinite loops
 - **`steps`** (required) — steps to run each iteration
 
-See `apps/mail/batch-archive.md` for a full example.
+See `skills/apps/mail/batch-archive.md` for a full example.
 
 ## Migration from YAML
 
@@ -219,7 +277,7 @@ Run the validation script to check all skills for required fields, valid metadat
 python3 scripts/validate-skills.py
 ```
 
-This validates both SKILL.md files (in `apps/`, `testing/`, `workflows/`, `ci/`) and legacy YAML files (in `legacy/`). It runs automatically on push and PR via GitHub Actions.
+This validates SKILL.md files (in `skills/`) and legacy YAML files (in `legacy/`). APP.md files are patterns, not skills, and are skipped. It runs automatically on push and PR via GitHub Actions.
 
 ## Contributing
 
@@ -230,10 +288,13 @@ The CLA ensures the project can be maintained long-term under a consistent licen
 ### How to contribute
 
 1. Fork this repository
-2. Create your skill in the appropriate directory:
-   - `apps/<app-name>/` for single-app iOS automation
-   - `testing/<framework>/` for mobile testing and QA
-   - `workflows/` for multi-app sequences that extract data across apps
+2. Create your file in the appropriate directory:
+   - `patterns/apps/<app-name>/APP.md` — describe an app (structure, obstacles, archetype)
+   - `patterns/elements/` — element patterns for new UI components
+   - `patterns/screens/` — screen archetype recipes
+   - `skills/apps/<app-name>/` — single-app automation
+   - `skills/testing/<framework>/` — mobile testing and QA
+   - `skills/workflows/` — multi-app sequences that extract data across apps
 3. Use the SKILL.md format:
    ```markdown
    ---

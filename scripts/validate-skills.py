@@ -117,7 +117,12 @@ MALFORMED_VARIABLE = re.compile(r"\$\{[^A-Za-z_]|\$\{[^}]*[^A-Za-z0-9_:}./-]")
 # Directories to scan for each file type.
 # ---------------------------------------------------------------------------
 
-MD_SKILL_DIRS = ["apps", "testing", "workflows", "ci"]
+# Skill directories: new structure (skills/*) and legacy top-level directories.
+# Files named APP.md are patterns, not skills — skipped by find_md_files.
+MD_SKILL_DIRS = [
+    "skills/apps", "skills/testing", "skills/workflows", "skills/ci",
+    "apps", "testing", "workflows", "ci",
+]
 YAML_SKILL_DIRS = ["legacy"]
 
 # ---------------------------------------------------------------------------
@@ -126,15 +131,23 @@ YAML_SKILL_DIRS = ["legacy"]
 
 
 def find_md_files(root):
-    """Walk MD_SKILL_DIRS and yield paths to .md files."""
+    """Walk MD_SKILL_DIRS and yield paths to .md files (skipping APP.md patterns)."""
+    seen = set()
     for dirname in MD_SKILL_DIRS:
         dirpath = os.path.join(root, dirname)
         if not os.path.isdir(dirpath):
             continue
         for dirpath_walk, _, filenames in os.walk(dirpath):
             for fname in sorted(filenames):
-                if fname.endswith(".md"):
-                    yield os.path.join(dirpath_walk, fname)
+                if not fname.endswith(".md"):
+                    continue
+                # APP.md files are app patterns, not skills — skip
+                if fname.upper() == "APP.MD":
+                    continue
+                full = os.path.join(dirpath_walk, fname)
+                if full not in seen:
+                    seen.add(full)
+                    yield full
 
 
 def find_yaml_files(root):

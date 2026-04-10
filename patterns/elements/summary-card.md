@@ -9,7 +9,9 @@ platform: ios
 ## Description
 
 Card showing a metric with title, large numeric value, and optional chevron.
-Common in Health, Fitness, and dashboard-style apps.
+Common in Health, Fitness, and dashboard-style apps. Vision describers may
+combine the title, value, and timestamp into a single element (e.g.
+"Activité, 15:10"), so min_elements is 1 to handle both OCR and vision output.
 
 ## Visual Pattern
 
@@ -21,7 +23,6 @@ Common in Health, Fitness, and dashboard-style apps.
 ## Match Rules
 
 - chevron_mode: preferred
-- has_numeric_value: true
 - min_elements: 2
 - max_elements: 3
 - max_row_height_pt: 120
@@ -34,6 +35,12 @@ Common in Health, Fitness, and dashboard-style apps.
 - click_result: pushes_screen
 - back_after_click: true
 - label_rule: longest_text
+
+## Exploration
+
+- explorable: true
+- role: depth_navigation
+- priority: high
 
 ## Grouping
 
