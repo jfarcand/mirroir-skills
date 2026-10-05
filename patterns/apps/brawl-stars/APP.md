@@ -5,6 +5,7 @@ spotlight_name: Brawl Stars
 icon: ✪
 locale: fr_CA
 archetype: game
+playable: single-control
 reset_before_explore: false
 obstacle_mode: auto
 ---
@@ -15,6 +16,10 @@ obstacle_mode: auto
 
 Mobile arena brawler. The app is **forced landscape** — every screen is wide
 and `describe_screen` reports the window in landscape.
+
+`playable: single-control` marks it a game: `generate_skill action=explore` is a
+no-op on it (the autonomous explorer never drives a game), so the shell below is
+covered by the hand-authored skills here, never by BFS.
 
 `archetype: game` is **documentary only**: a game has no single recipe. Its
 screens split into two kinds, and only the first is covered here.
