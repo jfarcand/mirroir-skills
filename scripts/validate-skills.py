@@ -106,7 +106,17 @@ VALID_REPEAT_MODES = {"while_visible", "until_visible", "times"}
 
 REQUIRED_YAML_FIELDS = {"name", "app", "description", "steps"}
 REQUIRED_MD_FRONT_MATTER = {"version", "name"}
-OPTIONAL_MD_FRONT_MATTER = {"app", "ios_min", "locale", "tags", "description"}
+OPTIONAL_MD_FRONT_MATTER = {
+    "app", "ios_min", "locale", "tags", "description",
+    # kind:game scene-skill schema (model-interpreted; mirroir-mcp recognizes
+    # kind + playable, the rest are read by the game model loop and #22's example)
+    "kind", "surface", "playable", "controls", "budget",
+}
+
+# Supported `playable` control classes. A value outside this set is rejected,
+# which is how a twin-stick / simultaneous-control scene is kept out: it has no
+# valid playable value (stock single-touch cannot drive two controls at once).
+VALID_PLAYABLE = {"observe-only", "single-control", "pc-controls"}
 
 SEMVER_ISH = re.compile(r"^\d+\.\d+(\.\d+)?$")
 LOCALE_CODE = re.compile(r"^[a-z]{2}_[A-Z]{2}$")
@@ -122,6 +132,8 @@ MALFORMED_VARIABLE = re.compile(r"\$\{[^A-Za-z_]|\$\{[^}]*[^A-Za-z0-9_:}./-]")
 MD_SKILL_DIRS = [
     "skills/apps", "skills/testing", "skills/workflows", "skills/ci",
     "apps", "testing", "workflows", "ci",
+    # archetype reference docs and game scene skills — previously unvalidated.
+    "archetypes",
 ]
 YAML_SKILL_DIRS = ["legacy"]
 
@@ -274,6 +286,22 @@ def validate_md_file(filepath, root):
     for key in front_matter:
         if key not in known_fields:
             warnings.append(f"  WARN   {rel}: unknown front matter field '{key}'")
+
+    # Scene-schema gate (kind:game skills). `playable` must name a supported
+    # control class, and an observe-only scene must declare no controls:
+    # "observe" means watch, not drive. `controls` is an inline list in front
+    # matter (e.g. `controls: [move, fire]`); for single-control those are used
+    # one at a time (stock single-touch serializes input), which is allowed.
+    playable = front_matter.get("playable")
+    if playable is not None and playable not in VALID_PLAYABLE:
+        errors.append(
+            f"  ERROR  {rel}: playable '{playable}' is not one of "
+            f"{', '.join(sorted(VALID_PLAYABLE))}")
+    controls = front_matter.get("controls")
+    if playable == "observe-only" and controls and str(controls).strip() not in ("", "[]", "{}"):
+        errors.append(
+            f"  ERROR  {rel}: observe-only skill must not declare controls "
+            f"(got controls: {controls})")
 
     # Validate variable syntax in the body
     for match in VARIABLE_SYNTAX.finditer(text):
@@ -517,6 +545,74 @@ def validate_yaml_file(filepath, root):
     return errors, warnings
 
 
+def run_selftest():
+    """Self-check the scene-schema gate: a well-formed game skill validates and
+    malformed ones are rejected. Returns 0 when every case matches expectation.
+
+    Proves the carnet acceptance ("a malformed game skill fails, a well-formed
+    one passes") without committing a deliberately-broken file to the tree.
+    """
+    import tempfile
+
+    cases = [
+        ("well-formed single-control game", True, """---
+version: 1
+name: Tutorial Scene
+app: Brawl Stars
+kind: game
+surface: scene
+playable: single-control
+controls: [move, fire]
+budget: { max_frames: 12, est_tokens: 2700, max_minutes: 3 }
+---
+
+Drive the Brawl Stars tutorial scene.
+
+## Steps
+
+1. Observe the scene.
+"""),
+        ("invalid playable value (twin-stick)", False, """---
+version: 1
+name: Bad Playable
+kind: game
+playable: twin-stick
+---
+
+Body.
+"""),
+        ("observe-only declaring controls", False, """---
+version: 1
+name: Bad ObserveOnly
+kind: game
+playable: observe-only
+controls: [move, fire]
+---
+
+Body.
+"""),
+    ]
+
+    all_ok = True
+    for label, should_pass, content in cases:
+        with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as fh:
+            fh.write(content)
+            path = fh.name
+        errors, _ = validate_md_file(path, os.path.dirname(path))
+        os.unlink(path)
+        passed = len(errors) == 0
+        matched = passed == should_pass
+        all_ok = all_ok and matched
+        status = "OK  " if matched else "FAIL"
+        detail = "" if passed else f" ({'; '.join(e.strip() for e in errors)})"
+        print(f"  [{status}] {label}: expected "
+              f"{'pass' if should_pass else 'fail'}, "
+              f"got {'pass' if passed else 'fail'}{detail}")
+
+    print("\nselftest: " + ("all cases matched" if all_ok else "MISMATCH"))
+    return 0 if all_ok else 1
+
+
 def main():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -562,4 +658,6 @@ def main():
 
 
 if __name__ == "__main__":
+    if "--selftest" in sys.argv:
+        sys.exit(run_selftest())
     main()
