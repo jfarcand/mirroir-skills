@@ -72,6 +72,21 @@ player (tutorial complete).
 - A grid of owned and locked brawlers. Read-only for shell coverage; tapping a
   brawler opens its detail card, not a scene.
 
+## Result Screen (shell)
+
+End-of-match outcome screen, reached only after a match ends — a scene produces
+it, a shell skill asserts it and never plays to it. Universal control: a
+"QUITTER" button that returns to the main menu. Outcome text by mode:
+
+- Ranked (Showdown / Survivant): "Rang : N" with a trophy delta (e.g. "+5") —
+  OCR-verified on this fixture.
+- 3v3 modes: "VICTOIRE" (win) / "DÉFAITE" (loss) — Brawl Stars' standard French
+  labels, pending on-device OCR confirmation here.
+
+Asserting it is deterministic on "QUITTER" (present on every result screen) and
+then on "JOUER" after tapping QUITTER (back on the main menu). See the
+`result-assert` skill.
+
 ## Obstacles
 
 - Login prompt "Vous avez déjà un compte ?" / "Supercell ID" → never log in;
