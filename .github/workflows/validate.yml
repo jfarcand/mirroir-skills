@@ -30,3 +30,4 @@ jobs:
           python-version: '3.12'
       - run: pip install pyyaml
       - run: python3 scripts/validate-skills.py
+      - run: python3 scripts/validate-skills.py --selftest
