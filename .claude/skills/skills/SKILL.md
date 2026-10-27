@@ -120,11 +120,11 @@ When you execute a skill, `get_skill` appends a compilation status line at the e
 
 ### How to compile during execution
 
-1. After each step, call `record_step` with the step index, type, label, and any data you observed:
+1. After each step, call `record_step` with the step index, type, label, and any data you observed. The label is the step's value as the skill would write it (the element, the app, the text, `l+command` for a key with modifiers, `"Photo" duration: 1500`, `{ from: "A", to: "B" }`, `{ kind: ios, app: "Notes" }`): `mirroir test` rebuilds each step of a SKILL.md from its type and label.
    - For **tap** steps: include `tap_x`, `tap_y`, `confidence` from `describe_screen`
    - For **wait_for** / **assert** steps: include `elapsed_ms` (approximate time waited)
    - For **scroll_to** steps: include `scroll_count` and `scroll_direction`
-   - For **launch**, **type**, **press_key**, **swipe**, **home**, **open_url**, **shake**, **reset_app**, **set_network**, **screenshot**, **switch_target**: just index, type, and label
+   - For **launch**, **type**, **press_key**, **swipe**, **home**, **open_url**, **shake**, **reset_app**, **set_network**, **screenshot**, **target**, **long_press**, **drag**: just index, type, and label
    - For **remember**, **condition**, **repeat** (AI-only steps): just index, type, and label (hints will be null)
 2. After all steps complete successfully, call `save_compiled` with the skill name
 
