@@ -224,6 +224,21 @@ def parse_front_matter(text):
 # ---------------------------------------------------------------------------
 
 
+def validate_archetype_header(text, rel):
+    """Check an archetype file's leading ```yaml block: it must close and carry
+    `version: 1` and a `name`. Returns the list of errors."""
+    end_idx = text.find("\n```", len("```yaml"))
+    if end_idx == -1:
+        return [f"  ERROR  {rel}: unclosed ```yaml header block"]
+    header = text[len("```yaml"):end_idx]
+    errors = []
+    if not re.search(r'^version:\s*1\s*$', header, re.MULTILINE):
+        errors.append(f"  ERROR  {rel}: archetype header must declare 'version: 1'")
+    if not re.search(r'^name:\s*\S', header, re.MULTILINE):
+        errors.append(f"  ERROR  {rel}: archetype header missing 'name'")
+    return errors
+
+
 def validate_md_file(filepath, root):
     """Validate a single SKILL.md file. Returns (errors, warnings) lists."""
     errors = []
@@ -240,6 +255,11 @@ def validate_md_file(filepath, root):
     if not text.strip():
         errors.append(f"  ERROR  {rel}: empty file")
         return errors, warnings
+
+    # Archetype files carry their header in a leading ```yaml block, the shape
+    # mirroir-run's archetype parser reads (runner/src/parser/archetype.rs).
+    if rel.startswith("archetypes" + os.sep) and text.startswith("```yaml"):
+        return validate_archetype_header(text, rel), warnings
 
     # Parse front matter
     front_matter, body = parse_front_matter(text)
@@ -608,6 +628,30 @@ Body.
         print(f"  [{status}] {label}: expected "
               f"{'pass' if should_pass else 'fail'}, "
               f"got {'pass' if passed else 'fail'}{detail}")
+
+    archetype_cases = [
+        ("archetype ```yaml header", True,
+         "```yaml\nversion: 1\nname: x/y\narchetype_version: 1.0.0\n```\n\n# X\n"),
+        ("archetype header without name", False,
+         "```yaml\nversion: 1\narchetype_version: 1.0.0\n```\n\n# X\n"),
+        ("archetype header never closed", False,
+         "```yaml\nversion: 1\nname: x/y\n"),
+    ]
+    with tempfile.TemporaryDirectory() as tmp_root:
+        archetype_dir = os.path.join(tmp_root, "archetypes", "x")
+        os.makedirs(archetype_dir)
+        path = os.path.join(archetype_dir, "archetype.md")
+        for label, should_pass, content in archetype_cases:
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(content)
+            errors, _ = validate_md_file(path, tmp_root)
+            passed = len(errors) == 0
+            matched = passed == should_pass
+            all_ok = all_ok and matched
+            status = "OK  " if matched else "FAIL"
+            print(f"  [{status}] {label}: expected "
+                  f"{'pass' if should_pass else 'fail'}, "
+                  f"got {'pass' if passed else 'fail'}")
 
     print("\nselftest: " + ("all cases matched" if all_ok else "MISMATCH"))
     return 0 if all_ok else 1
