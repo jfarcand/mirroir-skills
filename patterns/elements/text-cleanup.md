@@ -23,6 +23,7 @@ Characters removed from the beginning of labels:
 - ◦
 - ○
 - ●
+- *
 
 ## Exclude Labels
 
