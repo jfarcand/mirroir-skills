@@ -108,10 +108,21 @@ REQUIRED_YAML_FIELDS = {"name", "app", "description", "steps"}
 REQUIRED_MD_FRONT_MATTER = {"version", "name"}
 OPTIONAL_MD_FRONT_MATTER = {
     "app", "ios_min", "locale", "tags", "description",
-    # kind:game scene-skill schema (model-interpreted; mirroir-mcp recognizes
-    # kind + playable, the rest are read by the game model loop and #22's example)
+    # kind:game scene-skill schema, checked by the scene gate below.
     "kind", "surface", "playable", "controls", "budget",
 }
+
+# Skill variants a `kind:` header may name. "game" is a model-interpreted scene:
+# mirroir-mcp never replays it step by step.
+VALID_KINDS = {"game"}
+
+# Surfaces a kind:game skill drives. A shell screen is ordinary UI and is an
+# ordinary skill, so only the playfield is a game surface.
+VALID_GAME_SURFACES = {"scene"}
+
+# The typed frame/token/time budget every kind:game skill declares, each a
+# positive integer: a scene stops at the first limit it reaches.
+BUDGET_FIELDS = ("max_frames", "max_tokens", "max_seconds")
 
 # Supported `playable` control classes. A value outside this set is rejected,
 # which is how a twin-stick / simultaneous-control scene is kept out: it has no
@@ -179,6 +190,67 @@ def find_yaml_files(root):
 # ---------------------------------------------------------------------------
 
 
+def parse_inline_map(value):
+    """Parse an inline `{ key: value, ... }` map into a dict of strings, or
+    return None when the braces do not close or an entry has no `key: value`."""
+    if not value.endswith("}"):
+        return None
+    entries = {}
+    for entry in value[1:-1].split(","):
+        if not entry.strip():
+            continue
+        if ":" not in entry:
+            return None
+        key, raw = entry.split(":", 1)
+        entries[key.strip()] = raw.strip()
+    return entries
+
+
+def validate_game_scene(front_matter, rel):
+    """Errors for a kind:game skill's scene schema: a known surface and playable
+    class, controls used one at a time, and a complete typed budget."""
+    errors = []
+    surface = front_matter.get("surface")
+    if surface not in VALID_GAME_SURFACES:
+        errors.append(
+            f"  ERROR  {rel}: kind:game needs surface one of "
+            f"{', '.join(sorted(VALID_GAME_SURFACES))} (got {surface!r})")
+    if front_matter.get("playable") is None:
+        errors.append(f"  ERROR  {rel}: kind:game needs a playable class")
+    controls = front_matter.get("controls")
+    if controls is not None:
+        if not isinstance(controls, list):
+            errors.append(f"  ERROR  {rel}: controls must be an inline list, e.g. [move, fire]")
+        else:
+            # Stock single-touch drives one control at a time: a control that
+            # joins two (move+aim) needs a second finger the mirror never sends.
+            for control in controls:
+                if "+" in control:
+                    errors.append(
+                        f"  ERROR  {rel}: control '{control}' drives two controls at "
+                        f"once; single-touch input uses one at a time")
+    if front_matter.get("playable") not in (None, "observe-only") and not controls:
+        errors.append(f"  ERROR  {rel}: a playable scene must declare its controls")
+    budget = front_matter.get("budget")
+    if not isinstance(budget, dict):
+        errors.append(
+            f"  ERROR  {rel}: kind:game needs budget: "
+            f"{{ {', '.join(f + ': N' for f in BUDGET_FIELDS)} }}")
+        return errors
+    for field in BUDGET_FIELDS:
+        raw = budget.get(field)
+        if raw is None:
+            errors.append(f"  ERROR  {rel}: budget is missing {field}")
+        elif not raw.isdigit() or int(raw) <= 0:
+            errors.append(f"  ERROR  {rel}: budget {field} must be a positive integer (got {raw!r})")
+    for field in budget:
+        if field not in BUDGET_FIELDS:
+            errors.append(
+                f"  ERROR  {rel}: unknown budget field '{field}' "
+                f"(expected {', '.join(BUDGET_FIELDS)})")
+    return errors
+
+
 def parse_front_matter(text):
     """Parse YAML front matter from a markdown file (between --- delimiters).
 
@@ -209,10 +281,12 @@ def parse_front_matter(text):
             if (value.startswith('"') and value.endswith('"')) or \
                (value.startswith("'") and value.endswith("'")):
                 value = value[1:-1]
-            # Parse inline arrays for tags
-            if key == "tags" and value.startswith("["):
+            # Parse inline arrays (tags, controls) and inline maps (budget)
+            if key in ("tags", "controls") and value.startswith("["):
                 inner = value[1:-1] if value.endswith("]") else value[1:]
                 data[key] = [t.strip().strip('"').strip("'") for t in inner.split(",") if t.strip()]
+            elif key == "budget" and value.startswith("{"):
+                data[key] = parse_inline_map(value)
             else:
                 data[key] = value
 
@@ -306,6 +380,13 @@ def validate_md_file(filepath, root):
     for key in front_matter:
         if key not in known_fields:
             warnings.append(f"  WARN   {rel}: unknown front matter field '{key}'")
+
+    kind = front_matter.get("kind")
+    if kind is not None and kind not in VALID_KINDS:
+        errors.append(
+            f"  ERROR  {rel}: kind '{kind}' is not one of {', '.join(sorted(VALID_KINDS))}")
+    if kind == "game":
+        errors.extend(validate_game_scene(front_matter, rel))
 
     # Scene-schema gate (kind:game skills). `playable` must name a supported
     # control class, and an observe-only scene must declare no controls:
@@ -583,7 +664,7 @@ kind: game
 surface: scene
 playable: single-control
 controls: [move, fire]
-budget: { max_frames: 12, est_tokens: 2700, max_minutes: 3 }
+budget: { max_frames: 12, max_tokens: 288000, max_seconds: 180 }
 ---
 
 Drive the Brawl Stars tutorial scene.
@@ -607,6 +688,84 @@ name: Bad ObserveOnly
 kind: game
 playable: observe-only
 controls: [move, fire]
+---
+
+Body.
+"""),
+        ("simultaneous move and aim", False, """---
+version: 1
+name: Bad Scene
+kind: game
+surface: scene
+playable: single-control
+controls: [move+aim]
+budget: { max_frames: 12, max_tokens: 288000, max_seconds: 180 }
+---
+
+Body.
+"""),
+        ("untyped budget (est_tokens, max_minutes)", False, """---
+version: 1
+name: Bad Scene
+kind: game
+surface: scene
+playable: single-control
+controls: [move]
+budget: { max_frames: 12, est_tokens: 2700, max_minutes: 3 }
+---
+
+Body.
+"""),
+        ("budget field not a positive integer", False, """---
+version: 1
+name: Bad Scene
+kind: game
+surface: scene
+playable: single-control
+controls: [move]
+budget: { max_frames: 0, max_tokens: lots, max_seconds: 180 }
+---
+
+Body.
+"""),
+        ("game without a budget", False, """---
+version: 1
+name: Bad Scene
+kind: game
+surface: scene
+playable: single-control
+controls: [move]
+---
+
+Body.
+"""),
+        ("game without a scene surface", False, """---
+version: 1
+name: Bad Scene
+kind: game
+surface: shell
+playable: single-control
+controls: [move]
+budget: { max_frames: 12, max_tokens: 288000, max_seconds: 180 }
+---
+
+Body.
+"""),
+        ("playable scene without controls", False, """---
+version: 1
+name: Bad Scene
+kind: game
+surface: scene
+playable: single-control
+budget: { max_frames: 12, max_tokens: 288000, max_seconds: 180 }
+---
+
+Body.
+"""),
+        ("unknown kind", False, """---
+version: 1
+name: Bad Kind
+kind: gmae
 ---
 
 Body.

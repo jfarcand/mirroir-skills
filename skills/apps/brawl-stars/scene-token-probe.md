@@ -6,7 +6,7 @@ kind: game
 surface: scene
 playable: single-control
 controls: [move, fire]
-budget: { max_frames: 12, est_tokens: 2700, max_minutes: 4 }
+budget: { max_frames: 12, max_tokens: 288000, max_seconds: 240 }
 ios_min: "17.0"
 locale: "fr_CA"
 tags: ["brawl-stars", "game", "scene", "experiment", "token-cost"]
@@ -15,7 +15,7 @@ tags: ["brawl-stars", "game", "scene", "experiment", "token-cost"]
 A bounded cost probe for the gaming-scene model loop — NOT a game to win. It
 drives at most 12 frames of single-control movement at the start of one Brawl
 Stars match, then stops, so the real per-frame vision-token cost can be measured
-against the ~2700-token/frame model (Surface E / carnet #22). It never tries to
+against its `max_tokens` budget (Surface E / carnet #22). It never tries to
 win, and it uses one control at a time: stock single-touch cannot do a
 simultaneous move+aim, which is why `playable: single-control`.
 
@@ -43,8 +43,9 @@ per-frame cost measurement, not progress in the match.
 
 ## Success
 
-The run succeeds when it completes within budget: at most 12 frames, at most
-`max_minutes`, and total vision tokens within ~20% of `max_frames * est_tokens`.
+The run succeeds when it completes within budget: at most `max_frames` (12)
+frames, `max_seconds` (240 s), and `max_tokens` total vision tokens — 12 frames
+at the ~24k tokens per frame measured through embacle-ffi.
 Winning or surviving is explicitly out of scope.
 
 ## Steps

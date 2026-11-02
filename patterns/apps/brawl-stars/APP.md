@@ -114,4 +114,59 @@ then on "JOUER" after tapping QUITTER (back on the main menu). See the
 - Supercell ID
 - JOUER
 - SURVIVANT SOLO
+- MEILLEURE OFFRE
 - /\d+,\d+\s*\$/
+
+## Landmarks
+
+Texts each shell screen shows on every run; a generated wait takes one of them
+before the screen's most prominent text, which on the shop is a seasonal paid
+offer.
+
+- RESSOURCES
+- RECHERCHER
+- QUITTER
+
+## Simulator
+
+A synthetic, text-only stand-in for the shell, for FakeMirroring in CI. It
+carries the labels OCR reads on the device (fr_CA) and none of the game's
+artwork, in portrait: the device is landscape, and every shell scenario acts on
+labels, never on positions. The simulator never enters a scene, so JOUER goes
+nowhere. Two fixture packs open on the result screen a match leaves:
+`patterns/apps/test_fixtures/brawl_stars_victoire/APP.md` ("Brawl Stars
+Victoire") and `patterns/apps/test_fixtures/brawl_stars_defaite/APP.md`
+("Brawl Stars Defaite").
+
+- root: menu
+
+## Simulator Screen menu
+- title: SURVIVANT SOLO
+- back: null
+- tab_bar: false
+- element row: "MAGASIN" → shop
+- element row: "BRAWLERS" → brawlers
+- element row: "INFOS"
+- element row: "AMIS"
+- element row: "CLUB"
+- element row: "QUÊTES"
+- element button: "JOUER"
+
+## Simulator Screen shop
+- title: MAGASIN
+- back: menu
+- tab_bar: false
+- element row: "OFFRES À L'AFFICHE"
+- element row: "SKINS"
+- element row: "MAGASIN DE CURIOSITÉS"
+- element row: "RESSOURCES"
+
+## Simulator Screen brawlers
+- title: BRAWLERS
+- back: menu
+- tab_bar: false
+- element row: "RECHERCHER"
+- element row: "BRAWLERS À DÉBLOQUER"
+- element row: "SHELLY"
+- element row: "NITA"
+- element row: "COLT"
