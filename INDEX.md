@@ -22,10 +22,12 @@ for the full model.
 ## Install
 
 ```bash
-mkdir -p ~/.mirroir/skills
-git clone --depth=1 --branch v1.0.0 https://github.com/jfarcand/mirroir-skills \
-          ~/.mirroir/skills/mirroir-skills/1.0.0
+mirroir-run pack install https://github.com/jfarcand/mirroir-skills
 ```
+
+The pack lands at `~/.mirroir/skills/mirroir-skills/<pack_version>/`, where
+`mirroir-skills/<archetype>@<version>` refs in a consumer's `mirroir.yaml`
+resolve. Add `--ref <branch-or-tag>` to install another revision.
 
 ## Archetypes shipped here
 
@@ -44,12 +46,15 @@ archetypes/
     scenarios/<flow>.yaml
 ```
 
-Each tag of this repo represents one pack version. The installer fetches
-the tagged ref into `~/.mirroir/skills/mirroir-skills/<version>/`.
+`pack_version` in the YAML block above names the pack version, and
+`pack install` installs the fetched commit under that name. An installed
+version is immutable, so a different commit under an installed version is
+refused: bump `pack_version` whenever an archetype changes.
 
 ## Contributing an archetype
 
 1. Add `archetypes/<name>/archetype.md` declaring `provides.flows` + `requires.vars`.
 2. Author the parameterized `APP.md`, `SKILL.md`, and scenario YAMLs.
 3. Add an entry to the `archetypes:` list in this `INDEX.md`.
-4. Tag a release: `git tag vX.Y.Z`.
+4. Bump `pack_version` in this file (semver: major for breaking, minor for
+   additive, patch for prose).
