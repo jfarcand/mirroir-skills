@@ -121,10 +121,11 @@ then on "JOUER" after tapping QUITTER (back on the main menu). See the
 
 Texts each shell screen shows on every run; a generated wait takes one of them
 before the screen's most prominent text, which on the shop is a seasonal paid
-offer.
+offer. The Brawlers screen's RECHERCHER button is not one: OCR reads its
+magnifier glyph into the label ("O RECHERCHER", "• RECHERCHER").
 
 - RESSOURCES
-- RECHERCHER
+- BRAWLERS À DÉBLOQUER
 - QUITTER
 
 ## Simulator
