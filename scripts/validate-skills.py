@@ -109,7 +109,7 @@ REQUIRED_MD_FRONT_MATTER = {"version", "name"}
 OPTIONAL_MD_FRONT_MATTER = {
     "app", "ios_min", "locale", "tags", "description",
     # kind:game scene-skill schema, checked by the scene gate below.
-    "kind", "surface", "playable", "controls", "budget",
+    "kind", "surface", "playable", "controls", "budget", "success", "fail",
 }
 
 # Skill variants a `kind:` header may name. "game" is a model-interpreted scene:
@@ -123,6 +123,22 @@ VALID_GAME_SURFACES = {"scene"}
 # The typed frame/token/time budget every kind:game skill declares, each a
 # positive integer: a scene stops at the first limit it reaches.
 BUDGET_FIELDS = ("max_frames", "max_tokens", "max_seconds")
+
+# How a scene's success and fail predicates are judged: `visible` is a text the
+# frame's OCR reads, so the verdict never rests on the model's opinion.
+PREDICATE_KINDS = ("visible",)
+
+# The one-touch gestures a scene control may make, written in `## Controls` as
+# window fractions in [0, 1]:
+#   - <control>: tap at X,Y
+#   - <control>: drag from X,Y radius R      (the model picks the direction)
+#   - <control>: hold at X,Y for <ms>
+CONTROL_LINE = re.compile(
+    r"^-\s*(?P<name>[A-Za-z][A-Za-z0-9_-]*)\s*:\s*(?:"
+    r"tap at (?P<tx>[0-9.]+)\s*,\s*(?P<ty>[0-9.]+)"
+    r"|drag from (?P<dx>[0-9.]+)\s*,\s*(?P<dy>[0-9.]+) radius (?P<r>[0-9.]+)"
+    r"|hold at (?P<hx>[0-9.]+)\s*,\s*(?P<hy>[0-9.]+) for (?P<ms>[0-9]+)"
+    r")\s*$")
 
 # Supported `playable` control classes. A value outside this set is rejected,
 # which is how a twin-stick / simultaneous-control scene is kept out: it has no
@@ -190,26 +206,128 @@ def find_yaml_files(root):
 # ---------------------------------------------------------------------------
 
 
+def split_unquoted(text, separator):
+    """Split `text` on `separator` wherever it is outside double or single quotes."""
+    parts, current, quote = [], "", None
+    for char in text:
+        if quote:
+            if char == quote:
+                quote = None
+        elif char in "\"'":
+            quote = char
+        elif char == separator:
+            parts.append(current)
+            current = ""
+            continue
+        current += char
+    parts.append(current)
+    return parts
+
+
 def parse_inline_map(value):
     """Parse an inline `{ key: value, ... }` map into a dict of strings, or
-    return None when the braces do not close or an entry has no `key: value`."""
+    return None when the braces do not close or an entry has no `key: value`.
+    A comma or colon inside a quoted value is part of the value, and the quotes
+    around a value are stripped."""
     if not value.endswith("}"):
         return None
     entries = {}
-    for entry in value[1:-1].split(","):
+    for entry in split_unquoted(value[1:-1], ","):
         if not entry.strip():
             continue
         if ":" not in entry:
             return None
         key, raw = entry.split(":", 1)
-        entries[key.strip()] = raw.strip()
+        raw = raw.strip()
+        if len(raw) >= 2 and raw[0] == raw[-1] and raw[0] in "\"'":
+            raw = raw[1:-1]
+        entries[key.strip()] = raw
     return entries
 
 
-def validate_game_scene(front_matter, rel):
+def markdown_section(body, heading):
+    """The text under `## <heading>` in `body`, up to the next `## `, or None."""
+    match = re.search(
+        r"^##\s+" + re.escape(heading) + r"\s*$(?P<text>.*?)(?=^##\s|\Z)",
+        body, re.MULTILINE | re.DOTALL)
+    return match.group("text") if match else None
+
+
+def validate_predicate(front_matter, field, rel):
+    """Errors for a scene predicate: one `{ visible: "<text>" }` map."""
+    predicate = front_matter.get(field)
+    if not isinstance(predicate, dict) or len(predicate) != 1:
+        return [f"  ERROR  {rel}: {field} must be one predicate, e.g. "
+                f"{field}: {{ visible: \"VICTOIRE\" }}"]
+    (kind, text), = predicate.items()
+    if kind not in PREDICATE_KINDS:
+        return [f"  ERROR  {rel}: {field} predicate '{kind}' is not one of "
+                f"{', '.join(PREDICATE_KINDS)}"]
+    if not text:
+        return [f"  ERROR  {rel}: {field} predicate {kind} names no text"]
+    return []
+
+
+def validate_controls_section(body, controls, rel):
+    """Errors for `## Controls`: one calibrated gesture per declared control,
+    every coordinate a window fraction in [0, 1]."""
+    section = markdown_section(body, "Controls")
+    if section is None:
+        return [f"  ERROR  {rel}: a scene needs a ## Controls section calibrating "
+                f"each control (e.g. '- fire: tap at 0.85,0.72')"]
+    errors, calibrated = [], []
+    for line in section.splitlines():
+        line = line.strip()
+        if not line.startswith("-"):
+            continue
+        match = CONTROL_LINE.match(line)
+        if not match:
+            errors.append(
+                f"  ERROR  {rel}: control line '{line}' is not 'tap at X,Y', "
+                f"'drag from X,Y radius R' or 'hold at X,Y for MS'")
+            continue
+        name = match.group("name")
+        calibrated.append(name)
+        for coord in ("tx", "ty", "dx", "dy", "hx", "hy", "r"):
+            raw = match.group(coord)
+            if raw is not None and not (0.0 <= float(raw) <= 1.0):
+                errors.append(
+                    f"  ERROR  {rel}: control '{name}' coordinate {raw} is not a "
+                    f"window fraction in [0, 1]")
+        if match.group("r") is not None and float(match.group("r")) == 0.0:
+            errors.append(f"  ERROR  {rel}: control '{name}' drags a radius of 0")
+        if match.group("ms") is not None and int(match.group("ms")) == 0:
+            errors.append(f"  ERROR  {rel}: control '{name}' holds for 0 ms")
+    declared = controls if isinstance(controls, list) else []
+    for name in sorted(set(calibrated)):
+        if calibrated.count(name) > 1:
+            errors.append(f"  ERROR  {rel}: control '{name}' is calibrated twice")
+    for name in declared:
+        if name not in calibrated:
+            errors.append(f"  ERROR  {rel}: control '{name}' has no line in ## Controls")
+    for name in calibrated:
+        if name not in declared:
+            errors.append(
+                f"  ERROR  {rel}: ## Controls calibrates '{name}', which controls: "
+                f"does not declare")
+    return errors
+
+
+def validate_game_scene(front_matter, body, rel):
     """Errors for a kind:game skill's scene schema: a known surface and playable
-    class, controls used one at a time, and a complete typed budget."""
+    class, controls used one at a time and calibrated in ## Controls, an
+    objective, OCR predicates, and a complete typed budget."""
     errors = []
+    if front_matter.get("playable") == "observe-only":
+        errors.append(
+            f"  ERROR  {rel}: an observe-only scene drives nothing; a scene step "
+            f"plays the game, so its skill must be playable")
+    errors.extend(validate_predicate(front_matter, "success", rel))
+    if front_matter.get("fail") is not None:
+        errors.extend(validate_predicate(front_matter, "fail", rel))
+    objective = markdown_section(body, "Objective")
+    if objective is None or not objective.strip():
+        errors.append(f"  ERROR  {rel}: a scene needs an ## Objective the model plays toward")
     surface = front_matter.get("surface")
     if surface not in VALID_GAME_SURFACES:
         errors.append(
@@ -231,6 +349,8 @@ def validate_game_scene(front_matter, rel):
                         f"once; single-touch input uses one at a time")
     if front_matter.get("playable") not in (None, "observe-only") and not controls:
         errors.append(f"  ERROR  {rel}: a playable scene must declare its controls")
+    if isinstance(controls, list) and controls:
+        errors.extend(validate_controls_section(body, controls, rel))
     budget = front_matter.get("budget")
     if not isinstance(budget, dict):
         errors.append(
@@ -285,7 +405,7 @@ def parse_front_matter(text):
             if key in ("tags", "controls") and value.startswith("["):
                 inner = value[1:-1] if value.endswith("]") else value[1:]
                 data[key] = [t.strip().strip('"').strip("'") for t in inner.split(",") if t.strip()]
-            elif key == "budget" and value.startswith("{"):
+            elif key in ("budget", "success", "fail") and value.startswith("{"):
                 data[key] = parse_inline_map(value)
             else:
                 data[key] = value
@@ -386,7 +506,7 @@ def validate_md_file(filepath, root):
         errors.append(
             f"  ERROR  {rel}: kind '{kind}' is not one of {', '.join(sorted(VALID_KINDS))}")
     if kind == "game":
-        errors.extend(validate_game_scene(front_matter, rel))
+        errors.extend(validate_game_scene(front_matter, body, rel))
 
     # Scene-schema gate (kind:game skills). `playable` must name a supported
     # control class, and an observe-only scene must declare no controls:
@@ -665,13 +785,20 @@ surface: scene
 playable: single-control
 controls: [move, fire]
 budget: { max_frames: 12, max_tokens: 288000, max_seconds: 180 }
+success: { visible: "VICTOIRE" }
+fail: { visible: "DÉFAITE, encore" }
 ---
 
 Drive the Brawl Stars tutorial scene.
 
-## Steps
+## Objective
 
-1. Observe the scene.
+Collect the power cubes.
+
+## Controls
+
+- move: drag from 0.18,0.80 radius 0.08
+- fire: tap at 0.85,0.72
 """),
         ("invalid playable value (twin-stick)", False, """---
 version: 1
@@ -761,6 +888,136 @@ budget: { max_frames: 12, max_tokens: 288000, max_seconds: 180 }
 ---
 
 Body.
+"""),
+        ("scene without a success predicate", False, """---
+version: 1
+name: Bad Scene
+kind: game
+surface: scene
+playable: single-control
+controls: [move, fire]
+budget: { max_frames: 12, max_tokens: 288000, max_seconds: 180 }
+fail: { visible: "DÉFAITE" }
+---
+
+## Objective
+
+Collect the power cubes.
+
+## Controls
+
+- move: drag from 0.18,0.80 radius 0.08
+- fire: tap at 0.85,0.72
+"""),
+        ("unknown predicate kind", False, """---
+version: 1
+name: Bad Scene
+kind: game
+surface: scene
+playable: single-control
+controls: [move, fire]
+budget: { max_frames: 12, max_tokens: 288000, max_seconds: 180 }
+success: { score: "100" }
+---
+
+## Objective
+
+Collect the power cubes.
+
+## Controls
+
+- move: drag from 0.18,0.80 radius 0.08
+- fire: tap at 0.85,0.72
+"""),
+        ("control missing from ## Controls", False, """---
+version: 1
+name: Bad Scene
+kind: game
+surface: scene
+playable: single-control
+controls: [move, fire]
+budget: { max_frames: 12, max_tokens: 288000, max_seconds: 180 }
+success: { visible: "VICTOIRE" }
+---
+
+## Objective
+
+Collect the power cubes.
+
+## Controls
+
+- move: drag from 0.18,0.80 radius 0.08
+
+"""),
+        ("control coordinate outside [0, 1]", False, """---
+version: 1
+name: Bad Scene
+kind: game
+surface: scene
+playable: single-control
+controls: [move, fire]
+budget: { max_frames: 12, max_tokens: 288000, max_seconds: 180 }
+success: { visible: "VICTOIRE" }
+---
+
+## Objective
+
+Collect the power cubes.
+
+## Controls
+
+- move: drag from 0.18,0.80 radius 0.08
+- fire: tap at 850,720
+"""),
+        ("pinch gesture", False, """---
+version: 1
+name: Bad Scene
+kind: game
+surface: scene
+playable: single-control
+controls: [move, fire]
+budget: { max_frames: 12, max_tokens: 288000, max_seconds: 180 }
+success: { visible: "VICTOIRE" }
+---
+
+## Objective
+
+Collect the power cubes.
+
+## Controls
+
+- move: drag from 0.18,0.80 radius 0.08
+- fire: pinch at 0.85,0.72
+"""),
+        ("scene without an objective", False, """---
+version: 1
+name: Bad Scene
+kind: game
+surface: scene
+playable: single-control
+controls: [move, fire]
+budget: { max_frames: 12, max_tokens: 288000, max_seconds: 180 }
+success: { visible: "VICTOIRE" }
+---
+
+## Controls
+
+- move: drag from 0.18,0.80 radius 0.08
+- fire: tap at 0.85,0.72
+"""),
+        ("observe-only scene", False, """---
+version: 1
+name: Bad Scene
+kind: game
+surface: scene
+playable: observe-only
+budget: { max_frames: 12, max_tokens: 288000, max_seconds: 180 }
+success: { visible: "VICTOIRE" }
+---
+
+## Objective
+
+Watch.
 """),
         ("unknown kind", False, """---
 version: 1

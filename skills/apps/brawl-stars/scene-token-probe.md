@@ -7,51 +7,39 @@ surface: scene
 playable: single-control
 controls: [move, fire]
 budget: { max_frames: 12, max_tokens: 288000, max_seconds: 240 }
+success: { visible: "QUITTER" }
+fail: { visible: "Vaincu" }
 ios_min: "17.0"
 locale: "fr_CA"
 tags: ["brawl-stars", "game", "scene", "experiment", "token-cost"]
 ---
 
 A bounded cost probe for the gaming-scene model loop — NOT a game to win. It
-drives at most 12 frames of single-control movement at the start of one Brawl
-Stars match, then stops, so the real per-frame vision-token cost can be measured
-against its `max_tokens` budget (Surface E / carnet #22). It never tries to
-win, and it uses one control at a time: stock single-touch cannot do a
-simultaneous move+aim, which is why `playable: single-control`.
+plays at most 12 frames, one touch per frame, at the start of one Brawl Stars
+match, so the real per-frame vision-token cost can be measured against its
+`max_tokens` budget. It uses one control at a time: stock single-touch cannot
+do a simultaneous move+aim, which is why `playable: single-control`.
 
-Precondition: a match has just started and the playfield (scene) is on-screen,
-in landscape. Enter the match by hand (tap JOUER on the main-menu shell) — a
-shell skill never does this, and this probe starts from an already-live scene.
+Precondition: a match has just started and the playfield is on-screen, in
+landscape. Enter the match by hand (tap JOUER on the main-menu shell) — a shell
+skill never does this, and this probe starts from an already-live scene.
 
-## Control map (absolute window px, landscape)
-
-Approximate anchors — **calibrate on-device before the first run**. Positions
-scale with the mirror window size, so confirm them with `calibrate_component`
-or a `describe_screen` on the live scene first:
-
-- move: the left virtual joystick, rest center ≈ (18% width, 80% height). Drag
-  from the center toward a heading to move; release to stop.
-- fire: the right attack control, ≈ (85% width, 72% height). Tap to fire
-  straight, drag-and-release to aim. Used only between moves, never during one.
+"QUITTER" is on every result screen, so success means the match reached its
+result inside the budget. An eliminated brawler shows "Vaincu" before the
+result screen, and the fail predicate is read first, so a loss never passes.
+Twelve frames from a match's start rarely get there: the expected verdict is
+inconclusive on `max_frames`, which is the cost measurement this probe exists
+for. Measured on device: about 400 prompt and 250 completion tokens per frame.
 
 ## Objective
 
-Capture up to `max_frames` (12) frames while nudging `move` with one short drag
-per frame in a safe direction (away from the nearest wall). Stop at 12 frames,
-or earlier if the result screen ("QUITTER") appears. The goal is a clean
-per-frame cost measurement, not progress in the match.
+Keep your brawler alive and moving through the arena: move away from walls and
+toward open ground, and fire only when an enemy brawler is close in front of
+you. Winning is not required.
 
-## Success
+## Controls
 
-The run succeeds when it completes within budget: at most `max_frames` (12)
-frames, `max_seconds` (240 s), and `max_tokens` total vision tokens — 12 frames
-at the ~24k tokens per frame measured through embacle-ffi.
-Winning or surviving is explicitly out of scope.
+Calibrated on a live Showdown playfield, landscape mirror window 912x460.
 
-## Steps
-
-1. Verify the scene is on-screen (landscape playfield, not the shell).
-2. Capture a frame (`screenshot`, using the region/scale lever to cut cost).
-3. Perform one short `move` drag in a safe direction.
-4. Repeat steps 2-3 until 12 frames are captured or "QUITTER" appears.
-5. Stop. Report frames captured, elapsed time, and total vision tokens.
+- move: drag from 0.420,0.552 radius 0.12
+- fire: tap at 0.840,0.661
