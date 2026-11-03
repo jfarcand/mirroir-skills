@@ -110,6 +110,7 @@ OPTIONAL_MD_FRONT_MATTER = {
     "app", "ios_min", "locale", "tags", "description",
     # kind:game scene-skill schema, checked by the scene gate below.
     "kind", "surface", "playable", "controls", "budget", "success", "fail",
+    "image_width", "decider",
 }
 
 # Skill variants a `kind:` header may name. "game" is a model-interpreted scene:
@@ -125,19 +126,41 @@ VALID_GAME_SURFACES = {"scene"}
 BUDGET_FIELDS = ("max_frames", "max_tokens", "max_seconds")
 
 # How a scene's success and fail predicates are judged: `visible` is a text the
-# frame's OCR reads, so the verdict never rests on the model's opinion.
+# frame's OCR reads, so the verdict never rests on the model's opinion. Its value
+# is one text or a non-empty list of texts, any of which matches.
 PREDICATE_KINDS = ("visible",)
 
-# The one-touch gestures a scene control may make, written in `## Controls` as
-# window fractions in [0, 1]:
+# Front matter only a kind:game skill takes. `image_width` is the width in px a
+# frame is resized to before the model reads it; `decider: required` means an
+# external move picker (named by the scenario step, never the skill) chooses
+# each action while the model only reads the frame.
+SCENE_ONLY_FIELDS = ("image_width", "decider")
+IMAGE_WIDTH_RANGE = (200, 2000)
+VALID_DECIDERS = {"required"}
+
+# A board control's size limits: one column per letter a..z, rows 1..99.
+GRID_MAX_COLUMNS = 26
+GRID_MAX_ROWS = 99
+
+# The control name a scene action uses to wait one frame without a touch; a
+# skill never declares it.
+RESERVED_CONTROL = "none"
+
+# The gestures a scene control may make, written in `## Controls` as window
+# fractions in [0, 1]:
 #   - <control>: tap at X,Y
 #   - <control>: drag from X,Y radius R      (the model picks the direction)
 #   - <control>: hold at X,Y for <ms>
+#   - <control>: grid CxR from X,Y to X,Y    (a board: top-left to bottom-right
+#                                             corner; an action taps named cells)
 CONTROL_LINE = re.compile(
     r"^-\s*(?P<name>[A-Za-z][A-Za-z0-9_-]*)\s*:\s*(?:"
     r"tap at (?P<tx>[0-9.]+)\s*,\s*(?P<ty>[0-9.]+)"
     r"|drag from (?P<dx>[0-9.]+)\s*,\s*(?P<dy>[0-9.]+) radius (?P<r>[0-9.]+)"
     r"|hold at (?P<hx>[0-9.]+)\s*,\s*(?P<hy>[0-9.]+) for (?P<ms>[0-9]+)"
+    r"|grid (?P<cols>[0-9]+)x(?P<rows>[0-9]+)"
+    r" from (?P<fx>[0-9.]+)\s*,\s*(?P<fy>[0-9.]+)"
+    r" to (?P<gx>[0-9.]+)\s*,\s*(?P<gy>[0-9.]+)"
     r")\s*$")
 
 # Supported `playable` control classes. A value outside this set is rejected,
@@ -207,15 +230,20 @@ def find_yaml_files(root):
 
 
 def split_unquoted(text, separator):
-    """Split `text` on `separator` wherever it is outside double or single quotes."""
-    parts, current, quote = [], "", None
+    """Split `text` on `separator` wherever it is outside double or single quotes
+    and outside `[...]` brackets."""
+    parts, current, quote, depth = [], "", None, 0
     for char in text:
         if quote:
             if char == quote:
                 quote = None
         elif char in "\"'":
             quote = char
-        elif char == separator:
+        elif char == "[":
+            depth += 1
+        elif char == "]":
+            depth = max(0, depth - 1)
+        elif char == separator and depth == 0:
             parts.append(current)
             current = ""
             continue
@@ -224,11 +252,20 @@ def split_unquoted(text, separator):
     return parts
 
 
+def unquote(raw):
+    """`raw` stripped of whitespace and one pair of surrounding quotes."""
+    raw = raw.strip()
+    if len(raw) >= 2 and raw[0] == raw[-1] and raw[0] in "\"'":
+        return raw[1:-1]
+    return raw
+
+
 def parse_inline_map(value):
-    """Parse an inline `{ key: value, ... }` map into a dict of strings, or
-    return None when the braces do not close or an entry has no `key: value`.
-    A comma or colon inside a quoted value is part of the value, and the quotes
-    around a value are stripped."""
+    """Parse an inline `{ key: value, ... }` map into a dict, or return None when
+    the braces do not close or an entry has no `key: value`. A comma or colon
+    inside a quoted value is part of the value, and the quotes around a value
+    are stripped. A `[a, "b"]` value becomes a list of strings; an unclosed
+    one stays a string."""
     if not value.endswith("}"):
         return None
     entries = {}
@@ -239,9 +276,11 @@ def parse_inline_map(value):
             return None
         key, raw = entry.split(":", 1)
         raw = raw.strip()
-        if len(raw) >= 2 and raw[0] == raw[-1] and raw[0] in "\"'":
-            raw = raw[1:-1]
-        entries[key.strip()] = raw
+        if raw.startswith("[") and raw.endswith("]"):
+            entries[key.strip()] = [
+                unquote(item) for item in split_unquoted(raw[1:-1], ",") if item.strip()]
+        else:
+            entries[key.strip()] = unquote(raw)
     return entries
 
 
@@ -254,7 +293,8 @@ def markdown_section(body, heading):
 
 
 def validate_predicate(front_matter, field, rel):
-    """Errors for a scene predicate: one `{ visible: "<text>" }` map."""
+    """Errors for a scene predicate: one `{ visible: "<text>" }` map, whose value
+    may also be a non-empty list of texts (`visible: ["Vaincu", "Rejouer"]`)."""
     predicate = front_matter.get(field)
     if not isinstance(predicate, dict) or len(predicate) != 1:
         return [f"  ERROR  {rel}: {field} must be one predicate, e.g. "
@@ -263,9 +303,53 @@ def validate_predicate(front_matter, field, rel):
     if kind not in PREDICATE_KINDS:
         return [f"  ERROR  {rel}: {field} predicate '{kind}' is not one of "
                 f"{', '.join(PREDICATE_KINDS)}"]
+    if isinstance(text, list):
+        if not text:
+            return [f"  ERROR  {rel}: {field} predicate {kind} lists no text"]
+        if not all(text):
+            return [f"  ERROR  {rel}: {field} predicate {kind} lists an empty text"]
+        return []
     if not text:
         return [f"  ERROR  {rel}: {field} predicate {kind} names no text"]
     return []
+
+
+def validate_scene_options(front_matter, rel):
+    """Errors for a kind:game skill's optional `image_width` (an integer in
+    IMAGE_WIDTH_RANGE) and `decider` (only `required`)."""
+    errors = []
+    low, high = IMAGE_WIDTH_RANGE
+    width = front_matter.get("image_width")
+    if width is not None and (not width.isdigit() or not low <= int(width) <= high):
+        errors.append(
+            f"  ERROR  {rel}: image_width must be an integer in [{low}, {high}] "
+            f"(got {width!r})")
+    decider = front_matter.get("decider")
+    if decider is not None and decider not in VALID_DECIDERS:
+        errors.append(
+            f"  ERROR  {rel}: decider must be one of {', '.join(sorted(VALID_DECIDERS))} "
+            f"(got {decider!r}); the move picker itself is named by the scenario step")
+    return errors
+
+
+def validate_grid_control(match, name, rel):
+    """Errors for a `grid CxR from X,Y to X,Y` control: a size within
+    GRID_MAX_COLUMNS x GRID_MAX_ROWS and a bottom-right corner past the top-left."""
+    errors = []
+    cols, rows = int(match.group("cols")), int(match.group("rows"))
+    if not 1 <= cols <= GRID_MAX_COLUMNS:
+        errors.append(
+            f"  ERROR  {rel}: control '{name}' grid has {cols} columns "
+            f"(1..{GRID_MAX_COLUMNS})")
+    if not 1 <= rows <= GRID_MAX_ROWS:
+        errors.append(
+            f"  ERROR  {rel}: control '{name}' grid has {rows} rows (1..{GRID_MAX_ROWS})")
+    if float(match.group("gx")) <= float(match.group("fx")) or \
+            float(match.group("gy")) <= float(match.group("fy")):
+        errors.append(
+            f"  ERROR  {rel}: control '{name}' grid must run from its top-left "
+            f"corner to its bottom-right one (to > from on both axes)")
+    return errors
 
 
 def validate_controls_section(body, controls, rel):
@@ -284,11 +368,14 @@ def validate_controls_section(body, controls, rel):
         if not match:
             errors.append(
                 f"  ERROR  {rel}: control line '{line}' is not 'tap at X,Y', "
-                f"'drag from X,Y radius R' or 'hold at X,Y for MS'")
+                f"'drag from X,Y radius R', 'hold at X,Y for MS' or "
+                f"'grid CxR from X,Y to X,Y'")
             continue
         name = match.group("name")
         calibrated.append(name)
-        for coord in ("tx", "ty", "dx", "dy", "hx", "hy", "r"):
+        if match.group("cols") is not None:
+            errors.extend(validate_grid_control(match, name, rel))
+        for coord in ("tx", "ty", "dx", "dy", "hx", "hy", "r", "fx", "fy", "gx", "gy"):
             raw = match.group(coord)
             if raw is not None and not (0.0 <= float(raw) <= 1.0):
                 errors.append(
@@ -310,6 +397,10 @@ def validate_controls_section(body, controls, rel):
             errors.append(
                 f"  ERROR  {rel}: ## Controls calibrates '{name}', which controls: "
                 f"does not declare")
+        if name == RESERVED_CONTROL:
+            errors.append(
+                f"  ERROR  {rel}: ## Controls calibrates '{RESERVED_CONTROL}', the reserved "
+                f"wait-one-frame action")
     return errors
 
 
@@ -325,6 +416,7 @@ def validate_game_scene(front_matter, body, rel):
     errors.extend(validate_predicate(front_matter, "success", rel))
     if front_matter.get("fail") is not None:
         errors.extend(validate_predicate(front_matter, "fail", rel))
+    errors.extend(validate_scene_options(front_matter, rel))
     objective = markdown_section(body, "Objective")
     if objective is None or not objective.strip():
         errors.append(f"  ERROR  {rel}: a scene needs an ## Objective the model plays toward")
@@ -347,6 +439,10 @@ def validate_game_scene(front_matter, body, rel):
                     errors.append(
                         f"  ERROR  {rel}: control '{control}' drives two controls at "
                         f"once; single-touch input uses one at a time")
+                if control == RESERVED_CONTROL:
+                    errors.append(
+                        f"  ERROR  {rel}: control '{RESERVED_CONTROL}' is reserved for the "
+                        f"wait-one-frame action and is never declared")
     if front_matter.get("playable") not in (None, "observe-only") and not controls:
         errors.append(f"  ERROR  {rel}: a playable scene must declare its controls")
     if isinstance(controls, list) and controls:
@@ -361,7 +457,7 @@ def validate_game_scene(front_matter, body, rel):
         raw = budget.get(field)
         if raw is None:
             errors.append(f"  ERROR  {rel}: budget is missing {field}")
-        elif not raw.isdigit() or int(raw) <= 0:
+        elif not isinstance(raw, str) or not raw.isdigit() or int(raw) <= 0:
             errors.append(f"  ERROR  {rel}: budget {field} must be a positive integer (got {raw!r})")
     for field in budget:
         if field not in BUDGET_FIELDS:
@@ -507,6 +603,10 @@ def validate_md_file(filepath, root):
             f"  ERROR  {rel}: kind '{kind}' is not one of {', '.join(sorted(VALID_KINDS))}")
     if kind == "game":
         errors.extend(validate_game_scene(front_matter, body, rel))
+    else:
+        for field in SCENE_ONLY_FIELDS:
+            if field in front_matter:
+                errors.append(f"  ERROR  {rel}: {field} applies only to a kind:game skill")
 
     # Scene-schema gate (kind:game skills). `playable` must name a supported
     # control class, and an observe-only scene must declare no controls:
@@ -764,6 +864,74 @@ def validate_yaml_file(filepath, root):
             errors.append(f"  ERROR  {rel}: locale '{locale}' is not a valid locale code (e.g. 'en_US')")
 
     return errors, warnings
+
+
+BOARD_SKILL = """---
+version: 1
+name: Board Scene
+app: Grid Frames
+kind: game
+surface: scene
+playable: single-control
+controls: [CONTROLS]
+DECIDER
+image_width: WIDTH
+budget: { max_frames: 3, max_tokens: 100000, max_seconds: 60 }
+success: { visible: SUCCESS }
+fail: { visible: ["DEFAITE", "Jouer contre des bots"] }
+---
+
+Read the board.
+
+## Objective
+
+Read the board into a list of the cells that are marked.
+
+## Controls
+
+- board: GRID
+"""
+
+
+def board_selftest_cases():
+    """Selftest cases for a board scene: a `grid` control, list predicates,
+    `image_width` and `decider`. Each case swaps one token of BOARD_SKILL."""
+    defaults = {
+        "CONTROLS": "board", "DECIDER": "decider: required", "WIDTH": "800",
+        "SUCCESS": '"GOAL"', "GRID": "grid 3x3 from 0.134,0.216 to 0.866,0.540",
+    }
+
+    def skill(**swaps):
+        text = BOARD_SKILL
+        for token, value in {**defaults, **swaps}.items():
+            text = text.replace(token, value)
+        return text
+
+    return [
+        ("well-formed board scene (grid, decider, image_width, list fail)", True, skill()),
+        ("board scene with a list success predicate", True,
+         skill(SUCCESS='["GOAL", "Bravo, gagne"]')),
+        ("board scene without decider or image_width", True, skill(DECIDER="", WIDTH="1170")),
+        ("grid of 26x99 cells", True, skill(GRID="grid 26x99 from 0,0 to 1,1")),
+        ("grid of 27 columns", False, skill(GRID="grid 27x3 from 0.1,0.2 to 0.9,0.6")),
+        ("grid of 100 rows", False, skill(GRID="grid 3x100 from 0.1,0.2 to 0.9,0.6")),
+        ("grid of 0 columns", False, skill(GRID="grid 0x3 from 0.1,0.2 to 0.9,0.6")),
+        ("grid corner past the window", False, skill(GRID="grid 3x3 from 0.1,0.2 to 1.2,0.6")),
+        ("grid running bottom-right to top-left", False,
+         skill(GRID="grid 3x3 from 0.9,0.6 to 0.1,0.2")),
+        ("grid with no height", False, skill(GRID="grid 3x3 from 0.1,0.4 to 0.9,0.4")),
+        ("grid with no size", False, skill(GRID="grid from 0.1,0.2 to 0.9,0.6")),
+        ("reserved control none declared", False, skill(CONTROLS="board, none")),
+        ("reserved control none calibrated", False, skill(
+            CONTROLS="board, none",
+            GRID="grid 3x3 from 0.134,0.216 to 0.866,0.540\n- none: tap at 0.5,0.5")),
+        ("empty list success predicate", False, skill(SUCCESS="[]")),
+        ("list success predicate with an empty text", False, skill(SUCCESS='["GOAL", ""]')),
+        ("image_width below 200", False, skill(WIDTH="150")),
+        ("image_width above 2000", False, skill(WIDTH="2001")),
+        ("image_width not an integer", False, skill(WIDTH="wide")),
+        ("decider other than required", False, skill(DECIDER="decider: ./sf.sh")),
+    ]
 
 
 def run_selftest():
@@ -1027,7 +1195,16 @@ kind: gmae
 
 Body.
 """),
+        ("decider on a skill that is not a game", False, """---
+version: 1
+name: Bad Decider
+decider: required
+---
+
+Body.
+"""),
     ]
+    cases.extend(board_selftest_cases())
 
     all_ok = True
     for label, should_pass, content in cases:
