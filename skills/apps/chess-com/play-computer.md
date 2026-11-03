@@ -10,7 +10,7 @@ decider: required
 image_width: 800
 budget: { max_frames: 240, max_tokens: 1500000, max_seconds: 2400 }
 success: { visible: "Vous avez battu" }
-fail: { visible: ["vous a battu", "Jouer contre des bots"] }
+fail: { visible: ["a gagné", "Jouer contre des bots"] }
 ios_min: "17.0"
 locale: "fr_CA"
 tags: ["chess", "chess-com", "game", "scene", "board", "decider", "stockfish"]
@@ -37,8 +37,9 @@ scenario outside this skills tree: every YAML here is read as a skill.
 A checkmate win opens a popup over the board reading "Vous avez battu", then
 the bot's name, then "par échec et mat" (seen on device): that text is the
 success predicate. "Échec et mat" alone is not, since it shows when the bot
-mates too. A loss popup is expected to read "<bot> vous a battu", which the
-win text does not contain; a resignation shows no popup at all, only a flag on
+mates too. A loss by checkmate opens a popup reading "<bot> a gagné", then
+"par échec et mat" (seen on device against Maximum), which the win text does
+not contain; a resignation shows no popup at all, only a flag on
 the losing king. The app dropping back to the bot list ("Jouer contre des
 bots", seen once mid-game on device) also fails the run; the fail predicates
 are read first. A draw matches neither and ends on the
