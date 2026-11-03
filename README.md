@@ -119,9 +119,11 @@ YAML files live in the `legacy/` directory. They are used by the deterministic `
 
 ### Claude Code
 
+The skills plugin is listed in the `mirroir` marketplace, next to the mirroir-mcp server plugin:
+
 ```bash
-claude plugin marketplace add jfarcand/mirroir-skills
-claude plugin install skills@mirroir-skills
+claude plugin marketplace add jfarcand/mirroir-mcp
+claude plugin install skills@mirroir
 ```
 
 ### GitHub Copilot CLI
